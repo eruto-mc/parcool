@@ -57,7 +57,10 @@ public class Vault extends Action {
 						lookVec.x() * step.x() + lookVec.z() * step.z(), 0,
 						-lookVec.x() * step.z() + lookVec.z() * step.x()
 				).normalize();
-		if (dividedVec.x() < 0.707106) {
+		// 段差の向きと視線のずれの許容角。cos(θ) で比較している。
+		// 0.707106 = 45° だと、走りながら少し横を向いただけで乗り越えが出なくなり、
+		// 障害物が続く地形で流れが切れる。0.5 = 60° まで緩めて連続で乗り越えられるようにする。
+		if (dividedVec.x() < 0.5) {
 			return false;
 		}
 		AnimationType animationType;
