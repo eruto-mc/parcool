@@ -5,6 +5,7 @@ import com.alrex.parcool.client.input.KeyBindings;
 import com.alrex.parcool.client.input.KeyRecorder;
 import com.alrex.parcool.common.action.Action;
 import com.alrex.parcool.common.action.AdditionalProperties;
+import com.alrex.parcool.common.action.BehaviorEnforcer;
 import com.alrex.parcool.common.action.StaminaConsumeTiming;
 import com.alrex.parcool.common.capability.Animation;
 import com.alrex.parcool.common.capability.IStamina;
@@ -24,6 +25,8 @@ public class FastRun extends Action {
 	public enum ControlType {
 		PressKey, Toggle, Auto
 	}
+
+	private static final BehaviorEnforcer.ID ID_SPRINT_CANCEL = BehaviorEnforcer.newID();
 
 	private static final String FAST_RUNNING_MODIFIER_NAME = "parcool.modifier.fast_run";
 	private static final UUID FAST_RUNNING_MODIFIER_UUID = UUID.randomUUID();
@@ -96,6 +99,27 @@ public class FastRun extends Action {
 				&& ((ParCoolConfig.Client.FastRunControl.get() == ControlType.PressKey && KeyBindings.getKeyFastRunning().isDown())
 				|| (ParCoolConfig.Client.FastRunControl.get() == ControlType.Toggle && toggleStatus)
 				|| ParCoolConfig.Client.FastRunControl.get() == ControlType.Auto)
+		);
+	}
+
+	@OnlyIn(Dist.CLIENT)
+	@Override
+	public void onStartInLocalClient(Player player, Parkourability parkourability, IStamina stamina, ByteBuffer startData) {
+		// バニラは水平方向の衝突でスプリントを解除する（LocalPlayer.aiStep の horizontalCollision 判定）。
+		// canContinue() が player.isSprinting() を要求しているため、壁に軽く当たった・段差を乗り越えた
+		// だけで高速走行が途切れ、Vault の前提（canActWithRunning）まで連鎖して崩れていた。
+		// 「前進を押し続けている限りは解除させない」マーカーを張ってこれを止める。
+		//
+		// なお解除を止めるのは isDoing() が続く間だけなので、
+		//   スタミナ切れ  → canContinue() が false → isDoing() false → マーカーが外れる
+		//   前進を離す    → 条件が false → マーカーが外れる（バニラ同様その場で走りが終わる）
+		// と、止めるべき場面ではバニラの解除がそのまま働く。
+		parkourability.getBehaviorEnforcer().addMarkerCancellingSprint(
+				ID_SPRINT_CANCEL,
+				() -> this.isDoing()
+						&& KeyBindings.isKeyForwardDown()
+						&& !player.isShiftKeyDown()
+						&& !player.isInWaterOrBubble()
 		);
 	}
 
