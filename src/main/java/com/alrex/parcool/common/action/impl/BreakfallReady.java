@@ -14,6 +14,25 @@ import net.minecraft.world.phys.Vec3;
 import java.nio.ByteBuffer;
 
 public class BreakfallReady extends Action {
+	public enum ControlType {
+		/** 受け身キーを押している間だけ構える（従来の挙動） */
+		PressKey,
+		/** キーを使わず、着地の瞬間に移動入力があれば構える */
+		Auto
+	}
+
+	/**
+	 * 受け身の構えが成立しているか。
+	 * Auto では受け身キーの代わりに移動入力を見る。着地時に前後の移動キーが入っていれば
+	 * startBreakfall() 側が Roll を選ぶので、「走って着地したら勝手に受け身」になる。
+	 */
+	private static boolean isReadyInput() {
+		if (ParCoolConfig.Client.BreakfallControl.get() == ControlType.Auto) {
+			return KeyBindings.isAnyMovingKeyDown();
+		}
+		return KeyBindings.getKeyBreakfall().isDown();
+	}
+
 	public void startBreakfall(Player player, Parkourability parkourability, IStamina stamina, boolean justTimed) {
         boolean playSound = false;
 		if (justTimed && ParCoolConfig.Client.Booleans.EnableJustTimeEffectOfBreakfall.get()) {
@@ -59,7 +78,7 @@ public class BreakfallReady extends Action {
 
 	@Override
 	public boolean canContinue(Player player, Parkourability parkourability, IStamina stamina) {
-		return (KeyBindings.getKeyBreakfall().isDown()
+		return (isReadyInput()
 				&& !stamina.isExhausted()
 				&& !parkourability.get(Crawl.class).isDoing()
 				&& !player.isInWaterOrBubble()
