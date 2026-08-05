@@ -28,7 +28,11 @@ public class CatLeap extends Action {
 	private int coolTimeTick = 0;
 	private boolean ready = false;
 	private int readyTick = 0;
-    private static final int MAX_COOL_TIME_TICK = 30;
+    // キャットリープのクールタイム。上流は 30（1.5秒）。
+    // 走りながら SHIFT を押して離すと出る技で、跳んだあと次が出るまでが長く感じたので 20（1秒）にした。
+    // ⚠ 抑止は主にスタミナ側（消費200＝全27アクションで最大・満腹度1あたり3回）が担っている。
+    //    ここを縮めるぶん、連発したときの空腹の減りは目立つようになる。
+    private static final int MAX_COOL_TIME_TICK = 20;
 
 	@Override
 	public void onTick(Player player, Parkourability parkourability, IStamina stamina) {

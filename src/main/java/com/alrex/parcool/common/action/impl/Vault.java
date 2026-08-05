@@ -25,7 +25,14 @@ public class Vault extends Action {
 	public enum TypeSelectionMode {
 		SpeedVault, KongVault, Dynamic
 	}
-	public static final int MAX_TICK = 11;
+	// 乗り越えの動作時間。上流は 11。
+	// 移動を書いているのは最初の3tick だけ（0〜1で持ち上げ、2で前へ 0.45 送り出す）で、
+	// 残りはアニメの再生待ち。その間 isDoing() が真なので
+	// 横壁走り・壁駆け上がり・急旋回・ジップラインが出ず、匍匐はさらに8tick 待たされる。
+	// 障害物が続く地形で流れが切れるので、惰性待ちを削って 8 にした。
+	// ⚠ アニメ側（SpeedVaultAnimator / KongVaultAnimator）はこの値を分母に位相を出しているので、
+	//    縮めればアニメも同じだけ縮む（途中で切れない）。
+	public static final int MAX_TICK = 8;
 
 	public enum AnimationType {
 		SPEED_VAULT_RIGHT, SPEED_VAULT_LEFT, KONG_VAULT
