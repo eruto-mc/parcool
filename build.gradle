@@ -23,7 +23,11 @@ mixin {
 }
 
 //Version Format (MajorMOD.MajorAPI.Minor.Patch)
-var mod_version_code = "${major_mod}.${major_api}.${minor}.${patch}"
+// ⚠ マイクラ部の当部パッチ版は、上流と**同じ名前の jar を吐かせない**（gradle.properties の eruto_patch）。
+//    ここを通すと jar 名（ParCool-1.20.1-3.4.3.3-eruto2.jar）だけでなく、
+//    mods.toml の `${file.jarVersion}` 経由で**ゲーム内のMOD一覧とログの版表示**にも出る。
+//    parcool の版を参照している他MODは無いことを確認済み（instance/mods 311本の mods.toml を走査・2026-08-05）。
+var mod_version_code = "${major_mod}.${major_api}.${minor}.${patch}-eruto${eruto_patch}"
 version = "${mc_version}-${mod_version_code}"
 group = 'com.alrex'
 base {
