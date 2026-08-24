@@ -11,5 +11,8 @@ public class AddAttributesHandler {
     public static void onAddAttributes(EntityAttributeModificationEvent event) {
         event.add(EntityType.PLAYER, Attributes.MAX_STAMINA.get());
         event.add(EntityType.PLAYER, Attributes.STAMINA_RECOVERY.get());
+        // Minecraft-bu (eruto) patch: must be added here too, or
+        // getAttributeValue(WALL_CLIMB) throws on every player.
+        event.add(EntityType.PLAYER, Attributes.WALL_CLIMB.get());
     }
 }

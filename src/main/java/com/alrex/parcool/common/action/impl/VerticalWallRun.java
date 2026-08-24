@@ -1,5 +1,6 @@
 package com.alrex.parcool.common.action.impl;
 
+import com.alrex.parcool.api.Attributes;
 import com.alrex.parcool.api.SoundEvents;
 import com.alrex.parcool.client.animation.impl.VerticalWallRunAnimator;
 import com.alrex.parcool.client.input.KeyBindings;
@@ -42,7 +43,9 @@ public class VerticalWallRun extends Action {
 		boolean able = !stamina.isExhausted()
 				&& (Math.abs(player.getDeltaMovement().y()) <= player.getBbHeight() / 5)
 				&& (4 < tickAfterJump && tickAfterJump < 13)
-				&& getNotDoingTick() > 15
+				// Minecraft-bu (eruto) patch: shorten the gap between runs for
+				// climbing races, so they can chain runs up a tall wall.
+				&& getNotDoingTick() > 15 / player.getAttributeValue(Attributes.WALL_CLIMB.get())
 				&& !player.isFallFlying()
                 && KeyBindings.isKeyJumpDown()
 				&& !parkourability.get(ClingToCliff.class).isDoing()
@@ -97,10 +100,15 @@ public class VerticalWallRun extends Action {
 		float slipperiness = startData.getFloat();
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
             player.playSound(SoundEvents.VERTICAL_WALL_RUN.get(), 1f, 1f);
+		// Minecraft-bu (eruto) patch: scale the single upward push by our attribute.
+		// This start push is what decides how high you get - onTick only records the
+		// speed and onWorkingTickInClient only spawns particles, so the climb coasts
+		// on this one impulse. Cliff races (Arachnae 4.0, Feline 2.0) climb further.
+		double erutoWallClimb = player.getAttributeValue(Attributes.WALL_CLIMB.get());
 		player.setDeltaMovement(player
 				.getDeltaMovement()
 				.multiply(1, 0, 1)
-				.add(0, (slipperiness <= 0.8f ? 0.32 : 0.16) * Math.sqrt(height), 0)
+				.add(0, (slipperiness <= 0.8f ? 0.32 : 0.16) * Math.sqrt(height) * erutoWallClimb, 0)
 		);
 		onStartInOtherClient(player, parkourability, startData);
 	}
