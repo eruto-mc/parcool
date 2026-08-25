@@ -46,3 +46,20 @@ Please read [ParCool Guide](docs/parcool-guide-on-web-v3.1.0.0/Introduction.md).
 
 *ParCool* is licensed with  
 **GNU LESSER GENERAL PUBLIC LICENSE Version 3**.
+
+## `parcool:parkour` — パルクールを人ごとに止める（eruto_patch=4）
+
+素の ParCool は**サーバ全体**（`permit_*`）か**その人の設定**（`can_*`）でしか
+可否を決められず、⚠ **種族で分ける口が無かった**。
+
+`ActionProcessor.checkAndChangeActionState` は、⚠ **すべての技が通る唯一の関所**
+（`InstantAction` も含めて `parkourability.getList()` の1本の for から来る）。
+そこで属性を1回読み、**始めるほうと続けるほうの両方**を止める。
+
+| 値 | 意味 |
+| - | - |
+| 1.0（既定） | 素の ParCool のまま |
+| 0.0 | パルクールを一切しない |
+
+⚠ Origins からは `origins:attribute` 1枚で当てられる。
+当部ではゴーレムに 0.0 を当てている（重い体でよじ登らない）。

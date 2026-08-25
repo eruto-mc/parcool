@@ -26,6 +26,19 @@ public class Attributes {
      */
     public static final RegistryObject<Attribute> WALL_CLIMB = ATTRIBUTES.register("wall_climb", () -> new RangedAttribute("parcool.wall_climb", 1.0, 0.1, 10.0).setSyncable(true));
 
+    /**
+     * Minecraft-bu (eruto) patch: whether this player may use ParCool at all.
+     *
+     * <p>Upstream decides this per server ({@code permit_*}) or per client
+     * ({@code can_*}); there is no per-player switch, so a race that should not
+     * vault and wall-run (our Golem) had no way to be told apart.
+     *
+     * <p>{@code ActionProcessor.checkAndChangeActionState} is the single gate every
+     * action passes through, start and continue alike, so one check there covers
+     * all of them. 1.0 = normal, 0.0 = no ParCool.
+     */
+    public static final RegistryObject<Attribute> PARKOUR = ATTRIBUTES.register("parkour", () -> new RangedAttribute("parcool.parkour", 1.0, 0.0, 1.0).setSyncable(true));
+
     public static void registerAll(IEventBus bus) {
         ATTRIBUTES.register(bus);
     }

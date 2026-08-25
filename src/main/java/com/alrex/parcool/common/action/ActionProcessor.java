@@ -1,5 +1,6 @@
 package com.alrex.parcool.common.action;
 
+import com.alrex.parcool.api.Attributes;
 import com.alrex.parcool.ParCool;
 import com.alrex.parcool.api.unstable.action.ParCoolActionEvent;
 import com.alrex.parcool.common.capability.Animation;
@@ -180,8 +181,14 @@ public class ActionProcessor {
 
 	@OnlyIn(Dist.CLIENT)
 	private void checkAndChangeActionState(Player player, Parkourability parkourability, IStamina stamina, Action action, SyncActionStateMessage.Encoder builder) {
+		// Minecraft-bu (eruto) patch: per-player ParCool switch.
+		// Every action, instant ones included, reaches this method from the one
+		// loop in onTick, so gating here covers all of them at once.
+		// Reads as 1.0 for anyone Origins does not touch, i.e. unchanged.
+		boolean erutoParkourAllowed = player.getAttributeValue(Attributes.PARKOUR.get()) > 0.5;
 		if (action.isDoing()) {
-			boolean canContinue = parkourability.getActionInfo().can(action.getClass())
+			boolean canContinue = erutoParkourAllowed
+					&& parkourability.getActionInfo().can(action.getClass())
 					&& !MinecraftForge.EVENT_BUS.post(new ParCoolActionEvent.TryToContinueEvent(player, action))
 					&& !MinecraftForge.EVENT_BUS.post(new ParCoolActionEvent.TryToContinue(player, action))
 					&& action.canContinue(player, parkourability, stamina);
@@ -194,7 +201,8 @@ public class ActionProcessor {
 			}
 		} else {
 			bufferOfStarting.clear();
-			boolean start = !player.isSpectator()
+			boolean start = erutoParkourAllowed
+					&& !player.isSpectator()
 					&& parkourability.getActionInfo().can(action.getClass())
 					&& !MinecraftForge.EVENT_BUS.post(new ParCoolActionEvent.TryToStartEvent(player, action))
 					&& !MinecraftForge.EVENT_BUS.post(new ParCoolActionEvent.TryToStart(player, action))

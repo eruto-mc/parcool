@@ -14,5 +14,6 @@ public class AddAttributesHandler {
         // Minecraft-bu (eruto) patch: must be added here too, or
         // getAttributeValue(WALL_CLIMB) throws on every player.
         event.add(EntityType.PLAYER, Attributes.WALL_CLIMB.get());
+        event.add(EntityType.PLAYER, Attributes.PARKOUR.get());
     }
 }
