@@ -4,6 +4,7 @@ import com.alrex.parcool.api.Attributes;
 import com.alrex.parcool.api.SoundEvents;
 import com.alrex.parcool.client.animation.impl.VerticalWallRunAnimator;
 import com.alrex.parcool.client.input.KeyBindings;
+import com.alrex.parcool.client.input.KeyRecorder;
 import com.alrex.parcool.common.action.Action;
 import com.alrex.parcool.common.action.StaminaConsumeTiming;
 import com.alrex.parcool.common.capability.Animation;
@@ -39,15 +40,38 @@ public class VerticalWallRun extends Action {
 	@Override
 	public boolean canStart(Player player, Parkourability parkourability, IStamina stamina, ByteBuffer startInfo) {
 		int tickAfterJump = parkourability.getAdditionalProperties().getTickAfterLastJump();
-		Vec3 lookVec = player.getLookAngle();
+		// Minecraft-bu (eruto) patch: two ways in.
+		//
+		// Upstream only has the first: a real ground jump 5-12 ticks ago with the
+		// jump key still held. LivingJumpEvent is the only thing that resets that
+		// counter and Wall Jump sets velocity directly, so airborne there is no
+		// second run - you get one push and fall.
+		//
+		// The second is ours, and only for races carrying wall_climb_chain: a
+		// *fresh press* of jump while airborne. Holding jump does nothing, so it
+		// stays a rhythm rather than a held key. Wall Slide is excluded further
+		// down, so holding the wall-slide key still slides instead of climbing.
+		//
+		// The vertical-speed window belongs to the ground-jump path, not to both.
+		// It is what keeps upstream's 5-12 tick window honest (a vanilla jump only
+		// stays inside height/5 for ticks 5-9), but pairing it with the air path
+		// would make that path dead on arrival: a run ends the tick the climb stops
+		// rising, the next one has to wait `15 / wall_climb` ticks, and by tick 8 -
+		// the earliest Arachnae can retry - a free fall is already at 0.57 blocks
+		// per tick against a 0.36 limit. The two never overlap. The interval and
+		// the hunger cost are the rate limit for the air path.
+		boolean fromGroundJump = (4 < tickAfterJump && tickAfterJump < 13)
+				&& KeyBindings.isKeyJumpDown()
+				&& Math.abs(player.getDeltaMovement().y()) <= player.getBbHeight() / 5;
+		boolean restartInAir = player.getAttributeValue(Attributes.WALL_CLIMB_CHAIN.get()) >= 1.0
+				&& !player.onGround()
+				&& KeyRecorder.keyJumpState.isPressed();
 		boolean able = !stamina.isExhausted()
-				&& (Math.abs(player.getDeltaMovement().y()) <= player.getBbHeight() / 5)
-				&& (4 < tickAfterJump && tickAfterJump < 13)
+				&& (fromGroundJump || restartInAir)
 				// Minecraft-bu (eruto) patch: shorten the gap between runs for
 				// climbing races, so they can chain runs up a tall wall.
 				&& getNotDoingTick() > 15 / player.getAttributeValue(Attributes.WALL_CLIMB.get())
 				&& !player.isFallFlying()
-                && KeyBindings.isKeyJumpDown()
 				&& !parkourability.get(ClingToCliff.class).isDoing()
 				&& !parkourability.get(Crawl.class).isDoing()
                 && !parkourability.get(CatLeap.class).isDoing()
@@ -56,8 +80,14 @@ public class VerticalWallRun extends Action {
 				&& !parkourability.get(Vault.class).isDoing()
 				&& !parkourability.get(Flipping.class).isDoing()
 				&& parkourability.get(FastRun.class).getNotDashTick(parkourability.getAdditionalProperties()) < 8
-				&& parkourability.getAdditionalProperties().getLastSprintingTick() > 12
-				&& lookVec.y() > 0;
+				// Minecraft-bu (eruto) patch: upstream also demanded `lookVec.y() > 0`
+				// (looking even slightly above the horizon). Nobody could find that
+				// by playing - you run at a wall and jump, and nothing happens - and
+				// the remaining conditions (sprinting, the jump window, jump held,
+				// facing the wall within 21.6 degrees, wall over 2.34 blocks) are
+				// already specific enough that there is nothing left for it to rule
+				// out.
+				&& parkourability.getAdditionalProperties().getLastSprintingTick() > 12;
 		if (able) {
 			Vec3 wall = WorldUtil.getWall(player);
 			if (wall == null) return false;

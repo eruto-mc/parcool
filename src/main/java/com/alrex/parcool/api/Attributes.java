@@ -27,6 +27,26 @@ public class Attributes {
     public static final RegistryObject<Attribute> WALL_CLIMB = ATTRIBUTES.register("wall_climb", () -> new RangedAttribute("parcool.wall_climb", 1.0, 0.1, 10.0).setSyncable(true));
 
     /**
+     * Minecraft-bu (eruto) patch: whether this player can restart a Vertical Wall
+     * Run in mid-air.
+     *
+     * <p>Upstream gates the action on a real ground jump 5-12 ticks earlier
+     * ({@code LivingJumpEvent} is the only thing that resets that counter, and
+     * Wall Jump sets velocity directly rather than jumping), so a wall run can
+     * never be chained while airborne - you get one push and then fall. That is
+     * the right default, but our wall-climbing races want to keep going.
+     *
+     * <p>At 1.0 a fresh press of the jump key while airborne also opens the
+     * window. The existing {@code |vertical speed| <= height/5} check stays, so
+     * the press only lands near the apex of the previous climb - holding jump
+     * does nothing. Wall Slide is already excluded by {@code canStart}, so
+     * holding the wall-slide key still slides instead of climbing.
+     *
+     * <p>0.0 (default) keeps upstream behaviour.
+     */
+    public static final RegistryObject<Attribute> WALL_CLIMB_CHAIN = ATTRIBUTES.register("wall_climb_chain", () -> new RangedAttribute("parcool.wall_climb_chain", 0.0, 0.0, 1.0).setSyncable(true));
+
+    /**
      * Minecraft-bu (eruto) patch: whether this player may use ParCool at all.
      *
      * <p>Upstream decides this per server ({@code permit_*}) or per client
