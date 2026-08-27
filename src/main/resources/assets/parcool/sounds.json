@@ -33,9 +33,9 @@
     "subtitle": "parcool.sound.breakfall.just.subtitle",
     "sounds": [
       {
-        "name": "minecraft:random/anvil_land",
-        "volume": 0.65,
-        "pitch": 2
+        "name": "minecraft:block/amethyst/step1",
+        "volume": 1.0,
+        "pitch": 1.0
       }
     ]
   },
