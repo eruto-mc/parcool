@@ -12,6 +12,7 @@ import com.alrex.parcool.common.capability.IStamina;
 import com.alrex.parcool.common.capability.Parkourability;
 import com.alrex.parcool.config.ParCoolConfig;
 import com.alrex.parcool.utilities.WorldUtil;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
@@ -20,6 +21,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -67,11 +69,51 @@ public class WallJump extends Action {
 		return StaminaConsumeTiming.OnStart;
 	}
 
+	/**
+	 * Minecraft-bu (eruto) patch: the direction the player is steering, in world
+	 * space, or null when no movement key is held.
+	 *
+	 * <p>Built the same way as {@link HorizontalWallRun#canContinue} does it, so
+	 * the result is directly comparable to the wall vector.
+	 */
+	@OnlyIn(Dist.CLIENT)
+	@Nullable
+	private static Vec3 getSteeringDirection(Player player) {
+		if (!(player instanceof LocalPlayer localPlayer)) return null;
+		if (localPlayer.input == null) return null;
+		Vec2 moveVector = localPlayer.input.getMoveVector();
+		if (Math.abs(moveVector.x) < 1e-4 && Math.abs(moveVector.y) < 1e-4) return null;
+		return new Vec3(moveVector.x, 0, moveVector.y)
+				.normalize()
+				.yRot((float) -Math.toRadians(player.getYRot()));
+	}
+
 	@OnlyIn(Dist.CLIENT)
 	@Nullable
 	private Vec3 getJumpDirection(Player player, Vec3 wall) {
 		if (wall == null) return null;
 		wall = wall.normalize();
+
+		// Minecraft-bu (eruto) patch: kick where the player is *steering*, not
+		// where they are looking.
+		//
+		// Upstream only allowed a wall jump when the look direction was at least
+		// `acceptable_angle_wall_jump` away from the wall. At our 110 that means
+		// facing the wall - the pose you are in the instant after running into
+		// one - could never kick off, and WallJumpAnimationType.Back (picked when
+		// the look is within 45 degrees of the wall) was unreachable, so its
+		// camera flip never played once.
+		//
+		// Steering carries the intent better than the eyes do: A/D kicks
+		// sideways, W into the wall or S kicks straight back, and holding no
+		// movement key falls through to the old look-angle rule below - which is
+		// what keeps standing next to a wall while building from firing.
+		Vec3 steering = getSteeringDirection(player);
+		if (steering != null) {
+			Vec3 kick = wall.dot(steering) > 0 ? wall.reverse() : steering;
+			return kick.normalize().add(wall.scale(-0.7)).normalize();
+		}
+
 		Vec3 lookVec = player.getLookAngle();
 		Vec3 vec = new Vec3(lookVec.x(), 0, lookVec.z()).normalize();
 		Vec3 value;
@@ -144,7 +186,12 @@ public class WallJump extends Action {
 				).normalize();
 
 		WallJumpAnimationType type;
-		if (lookDividedVec.x() > 0.707) {
+		// Minecraft-bu (eruto) patch: the backflip reads as "shoved straight off
+		// the wall", so ask for that as well as for facing it. Steering sideways
+		// while looking at the wall now kicks sideways, and used to get the
+		// backflip anyway. dividedVec.x is cos(angle between wall and kick), so
+		// < -0.85 means the kick is within ~32 degrees of straight away.
+		if (lookDividedVec.x() > 0.707 && dividedVec.x() < -0.85) {
 			type = WallJumpAnimationType.Back;
 		} else if (dividedVec.z() > 0) {
 			type = WallJumpAnimationType.SwingRightArm;
