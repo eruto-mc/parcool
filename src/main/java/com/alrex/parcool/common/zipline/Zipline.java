@@ -12,7 +12,26 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 public abstract class Zipline {
-    public static final double MAXIMUM_HORIZONTAL_DISTANCE = 115.;
+    /**
+     * Minecraft-bu (eruto) patch: 115 -> 320.
+     *
+     * <p>320 is the hard ceiling, not a taste call. The rope is one entity and
+     * {@link com.alrex.parcool.common.entity.zipline.ZiplineRopeEntity} places it
+     * at the midpoint of the line, and vanilla only sends an entity to a player
+     * within {@code min(clientTrackingRange * 16, view-distance * 16)} horizontal
+     * blocks of it (read off {@code ChunkMap$TrackedEntity.updatePlayer} in the
+     * 1.20.1 server jar). Our server runs view-distance 10, so that radius is 160
+     * and standing at either end of a line of length L is L/2 away: L <= 320.
+     *
+     * <p>Two things follow, neither of which touches shorter lines:
+     * a line near the ceiling only renders while you are within 160 blocks of its
+     * middle, and {@link #getHangableZipline} searches a box scaled from this
+     * constant, so the box grows with it.
+     *
+     * <p>If view-distance is ever lowered again (it was 8 until 2026-08-17), this
+     * number has to come down with it: L <= view-distance * 32.
+     */
+    public static final double MAXIMUM_HORIZONTAL_DISTANCE = 320.;
     public static final double MAXIMUM_VERTICAL_DISTANCE = MAXIMUM_HORIZONTAL_DISTANCE * 0.51;
 
     protected Zipline(Vec3 point1, Vec3 point2) {
