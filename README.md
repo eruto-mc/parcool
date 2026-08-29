@@ -1,7 +1,16 @@
-> ## ⚠ これは当部パッチ版です（eruto-mc）
+> ## ⚠ これは改変版です（alRex-U/ParCool の fork・公式のものではありません）
 >
-> 上流: [alRex-U/ParCool](https://github.com/alRex-U/ParCool) ／ ブランチ `eruto/world3-1.20.1`
-> ／ ライセンスは上流に従う（LGPL-3.0）。**以下は上流の README です。**
+> **This is a modified version of ParCool, not the official build.**
+> Modified by the minecraft club (eruto) — **最初の改変 2026-08-02 ／ 最新の改変 2026-08-30**。
+> Original work: [alRex-U/ParCool](https://github.com/alRex-U/ParCool).
+> Licensed under **LGPL-3.0**, same as upstream. The original author does not endorse this build.
+>
+> 上流: [alRex-U/ParCool](https://github.com/alRex-U/ParCool) ／ 枝 `eruto/world3-1.20.1`
+> ／ 上流の枝 `1.20.1` から分岐。**以下は上流の README です。**
+>
+> ⚠ **不具合をここの改変版で見つけても、上流へ報告しないでください。**
+> ⚠ 配る jar の名前には `-eruto<番号>` が入っています（例 `ParCool-1.20.1-3.4.3.3-eruto7.jar`）。
+> ⚠ **modId は上流のまま `parcool`**（変えると設定・依存・ワールドが壊れるため）。
 >
 > **当部が変えたところ**（⚠ 件数を書かない。書いた瞬間から腐る）:
 >
