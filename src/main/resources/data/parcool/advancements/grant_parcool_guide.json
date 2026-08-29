@@ -1,12 +1,20 @@
 {
+  "_comment": [
+    "当部（eruto-mc）の変更: 初回参加で ParCool の手引書を配るのをやめた。",
+    "元の中身: criteria={tick: minecraft:tick} / rewards={loot:[parcool:grant_parcool_guide]}",
+    "つまり参加した全員に patchouli:guide_book（NBT で parcool:parcool_guide を指す）が1冊配られていた。",
+    "当部は独自の手引書を初回に1冊配っているので、同時に2冊届くと読み手が迷う。",
+    "ParCool 側にこれを切る設定が無いので、進捗そのものを止めている。",
+    "trigger を minecraft:impossible にしたうえで rewards ごと消してあるので、",
+    "誤って /advancement grant しても何も配られない。",
+    "⚠ 本を無くしたわけではない。羽3つ＋本 でこれまでどおり作れる。",
+    "⚠ ファイルを消さずに残してあるのは、消えたものは読めないから。",
+    "   上流が同じ行を変えたときに、衝突として目に入るようにもしてある。",
+    "戻すときは criteria と rewards を上の1行目の形へ書き戻す。"
+  ],
   "criteria": {
-    "tick": {
-      "trigger": "minecraft:tick"
+    "never": {
+      "trigger": "minecraft:impossible"
     }
-  },
-  "rewards": {
-    "loot": [
-      "parcool:grant_parcool_guide"
-    ]
   }
 }
