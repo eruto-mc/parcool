@@ -20,6 +20,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -30,6 +31,28 @@ import java.nio.ByteBuffer;
 public class Slide extends Action {
     private static final BehaviorEnforcer.ID ID_JUMP_CANCEL = BehaviorEnforcer.newID();
 	private Vec3 slidingVec = null;
+
+	// ── マイクラ部（eruto）のパッチ: 坂を滑ると速くなる（2026-09-02） ──────────
+	//
+	// 上流は毎ティック水平速度を固定値で書き直すので、坂でも平地でも同じ速さになる。
+	// しかも接地していないティックは 0.6 倍にしており、段差は1つ落ちるのに4ティックほど
+	// 浮くので、⚠ 階段を下ると速くなるどころか実際には遅くなっていた。
+	//
+	// ⚠ 上乗せの対象は「足がすぐ地面へ戻る坂」だけ——真下 SLOPE_GROUND_DEPTH 以内に
+	//    当たり判定が在ることを条件にする。崖から飛び出すと真下が空くので上乗せが止まり、
+	//    坂でもなくなるので持ち時間も減り始める。
+	private static final double SLOPE_GROUND_DEPTH = 2.5;
+	// 1ブロック下るごとに何割上乗せするか。上限まで5ブロック。
+	private static final double SLOPE_BOOST_PER_BLOCK = 0.2;
+	// 上乗せの上限。1.0 = 素の2倍（0.45 → 0.9 /tick ＝ 9 → 18 m/s）。
+	private static final double MAX_SLOPE_BOOST = 1.0;
+	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
+	//    終わらない形を残さないために置く。
+	private static final int MAX_SLOPE_EXTENSION_TICK = 600;
+
+	private double slopeBoost = 0;
+	private double lastY = Double.NaN;
+	private int slopeTick = 0;
 
 	@Override
 	public boolean canStart(Player player, Parkourability parkourability, IStamina stamina, ByteBuffer startInfo) {
@@ -52,13 +75,19 @@ public class Slide extends Action {
 				parkourability.getActionInfo().getClientSetting().get(ParCoolConfig.Client.Integers.SlidingContinuableTick),
 				parkourability.getActionInfo().getServerLimitation().get(ParCoolConfig.Server.Integers.MaxSlidingContinuableTick)
 		);
-		return getDoingTick() < maxSlidingTick
+		// マイクラ部（eruto）のパッチ: 坂を滑っていたティックは持ち時間から差し引く。
+		// 平らになった瞬間から差し引きが止まるので、そこから通常の持ち時間で終わる。
+		return getDoingTick() - slopeTick < maxSlidingTick
 				&& parkourability.get(Crawl.class).isDoing();
 	}
 
 	@Override
 	public void onStartInLocalClient(Player player, Parkourability parkourability, IStamina stamina, ByteBuffer startData) {
 		slidingVec = new Vec3(startData.getDouble(), 0, startData.getDouble());
+		// マイクラ部（eruto）のパッチ: 坂の上乗せを初期化する。
+		slopeBoost = 0;
+		lastY = player.getY();
+		slopeTick = 0;
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
             player.playSound(SoundEvents.SLIDE.get(), 1f, 1f);
 		Animation animation = Animation.get(player);
@@ -82,14 +111,43 @@ public class Slide extends Action {
 	@Override
 	public void onWorkingTickInLocalClient(Player player, Parkourability parkourability, IStamina stamina) {
 		if (slidingVec != null) {
+			// マイクラ部（eruto）のパッチ: 坂を下った高さのぶんだけ速さを上乗せする。
+			double y = player.getY();
+			double drop = Double.isNaN(lastY) ? 0 : lastY - y;
+			lastY = y;
+			boolean onSlope = drop > 0.01 && hasGroundBelow(player);
+			if (onSlope) {
+				slopeBoost = Math.min(MAX_SLOPE_BOOST, slopeBoost + drop * SLOPE_BOOST_PER_BLOCK);
+				if (slopeTick < MAX_SLOPE_EXTENSION_TICK) slopeTick++;
+			}
+
             AttributeInstance attr = player.getAttribute(Attributes.MOVEMENT_SPEED);
             double speedScale = 0.45;
             if (attr != null) {
                 speedScale = attr.getValue() * 4.5;
             }
+            speedScale *= 1 + slopeBoost;
             Vec3 vec = slidingVec.scale(speedScale);
-			player.setDeltaMovement((player.onGround() ? vec : vec.scale(0.6)).add(0, player.getDeltaMovement().y(), 0));
+			// ⚠ 段差を落ちている最中も坂の一部なので、そこでは 0.6 倍を掛けない。
+			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
+			boolean keepingSpeed = player.onGround() || onSlope;
+			player.setDeltaMovement((keepingSpeed ? vec : vec.scale(0.6)).add(0, player.getDeltaMovement().y(), 0));
 		}
+	}
+
+	/**
+	 * Minecraft-bu (eruto) patch: is there anything solid within
+	 * {@link #SLOPE_GROUND_DEPTH} blocks under the player's feet?
+	 *
+	 * <p>This is what tells "sliding down stairs" from "sliding off a cliff".
+	 * Stairs and one-block steps leave the ground for a few ticks at a time but
+	 * always have floor right below; a cliff does not, so the speed-up stops
+	 * there and the slide runs out of time like it used to.
+	 */
+	private static boolean hasGroundBelow(Player player) {
+		AABB box = player.getBoundingBox();
+		AABB probe = new AABB(box.minX, box.minY - SLOPE_GROUND_DEPTH, box.minZ, box.maxX, box.minY, box.maxZ);
+		return !player.level().noCollision(player, probe);
 	}
 
 	@Override

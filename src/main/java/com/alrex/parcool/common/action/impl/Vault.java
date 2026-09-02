@@ -29,10 +29,12 @@ public class Vault extends Action {
 	// 移動を書いているのは最初の3tick だけ（0〜1で持ち上げ、2で前へ 0.45 送り出す）で、
 	// 残りはアニメの再生待ち。その間 isDoing() が真なので
 	// 横壁走り・壁駆け上がり・急旋回・ジップラインが出ず、匍匐はさらに8tick 待たされる。
-	// 障害物が続く地形で流れが切れるので、惰性待ちを削って 8 にした。
+	// 障害物が続く地形で流れが切れるので、惰性待ちを削って 8 にし、2026-09-02 にさらに 6 にした。
 	// ⚠ アニメ側（SpeedVaultAnimator / KongVaultAnimator）はこの値を分母に位相を出しているので、
 	//    縮めればアニメも同じだけ縮む（途中で切れない）。
-	public static final int MAX_TICK = 8;
+	// ⚠ 下限は 3。移動を書き終えるのが tick 2 なので、それより短くすると
+	//    前へ送り出す 0.45 が書かれないまま動作が終わる。
+	public static final int MAX_TICK = 6;
 
 	public enum AnimationType {
 		SPEED_VAULT_RIGHT, SPEED_VAULT_LEFT, KONG_VAULT
