@@ -176,10 +176,7 @@
   "zipline.ride": {
     "subtitle": "parcool.sound.zipline.ride.subtitle",
     "sounds": [
-      {
-        "name": "minecraft:item.elytra.flying",
-        "type": "event"
-      }
+      "minecraft:item/elytra/elytra_loop"
     ]
   },
   "parcool.enable": {

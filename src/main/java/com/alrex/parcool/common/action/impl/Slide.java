@@ -50,8 +50,11 @@ public class Slide extends Action {
 	// 坂を滑っている間、宙に浮いているティックだけ下向きに足す加速。
 	// バニラの重力（0.08/tick）の約2倍で、上の計算で言う「浮き」を打ち消す。
 	private static final double SLOPE_STICK_ACCELERATION = 0.15;
-	// 1ブロック下るごとに何割上乗せするか。上限まで5ブロック。
-	private static final double SLOPE_BOOST_PER_BLOCK = 0.2;
+	// 上乗せが最大になるまでに下る高さ（ブロック）。
+	// ⚠ 2026-09-03 に線形（1ブロックあたり2割）から二次へ変えた——
+	//    線形だと最初から効きが同じで、⚠ **2段下りただけで走りの 2.25 倍**になっていた。
+	//    いまは下った高さの2乗に比例するので、初めはほとんど変わらず、長い坂ほど効いてくる。
+	private static final double SLOPE_FULL_DROP = 12.0;
 	// 上乗せの上限。1.0 = 素の2倍（0.45 → 0.9 /tick ＝ 9 → 18 m/s）。
 	private static final double MAX_SLOPE_BOOST = 1.0;
 	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
@@ -59,6 +62,8 @@ public class Slide extends Action {
 	private static final int MAX_SLOPE_EXTENSION_TICK = 600;
 
 	private double slopeBoost = 0;
+	// この滑りで下った高さの累計（ブロック）。上乗せはこれの2乗から出す。
+	private double slopeDrop = 0;
 	private double lastY = Double.NaN;
 	private int slopeTick = 0;
 
@@ -94,6 +99,7 @@ public class Slide extends Action {
 		slidingVec = new Vec3(startData.getDouble(), 0, startData.getDouble());
 		// マイクラ部（eruto）のパッチ: 坂の上乗せを初期化する。
 		slopeBoost = 0;
+		slopeDrop = 0;
 		lastY = player.getY();
 		slopeTick = 0;
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
@@ -125,7 +131,11 @@ public class Slide extends Action {
 			lastY = y;
 			boolean onSlope = drop > 0.01 && hasGroundBelow(player);
 			if (onSlope) {
-				slopeBoost = Math.min(MAX_SLOPE_BOOST, slopeBoost + drop * SLOPE_BOOST_PER_BLOCK);
+				slopeDrop += drop;
+				// 下った高さの2乗に比例させる（0 から始まって SLOPE_FULL_DROP で上限）。
+				// 線形だと出だしが速すぎるので、序盤をわざと寝かせている。
+				double ratio = Math.min(1.0, slopeDrop / SLOPE_FULL_DROP);
+				slopeBoost = MAX_SLOPE_BOOST * ratio * ratio;
 				if (slopeTick < MAX_SLOPE_EXTENSION_TICK) slopeTick++;
 			}
 

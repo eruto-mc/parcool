@@ -32,6 +32,8 @@ public class ZiplineSoundInstance extends AbstractTickableSoundInstance {
 	// 素の滑走がおよそ 0.2〜0.6 なので、急な線を滑り切ったあたりで最大になる。
 	private static final double REFERENCE_SPEED = 0.6;
 	private static final float MAX_VOLUME = 0.7f;
+	// ⚠ 0 まで下げない。下げると音の管理側に捨てられ、そのあと上げ直しても戻らない。
+	private static final float MIN_VOLUME = 0.1f;
 
 	private final LocalPlayer player;
 
@@ -40,8 +42,9 @@ public class ZiplineSoundInstance extends AbstractTickableSoundInstance {
 		this.player = player;
 		this.looping = true;
 		this.delay = 0;
-		// 動き出しで唐突に鳴らないよう、無音から始めて tick で上げる。
-		this.volume = 0f;
+		// ⚠ 0 から始めると鳴らない。音の管理側が「聞こえない音」として捨てるので、
+		//    バニラの ElytraOnPlayerSoundInstance と同じく小さい値で始める（2026-09-03）。
+		this.volume = MIN_VOLUME;
 		this.x = player.getX();
 		this.y = player.getY();
 		this.z = player.getZ();
@@ -67,7 +70,7 @@ public class ZiplineSoundInstance extends AbstractTickableSoundInstance {
 		this.y = player.getY();
 		this.z = player.getZ();
 		double ratio = Mth.clamp(Math.abs(action.getSpeed()) / REFERENCE_SPEED, 0, 1);
-		this.volume = (float) (MAX_VOLUME * ratio);
+		this.volume = (float) Math.max(MIN_VOLUME, MAX_VOLUME * ratio);
 		this.pitch = (float) (0.8 + 0.4 * ratio);
 	}
 }
