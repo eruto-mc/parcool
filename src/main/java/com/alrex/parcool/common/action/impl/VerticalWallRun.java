@@ -133,7 +133,8 @@ public class VerticalWallRun extends Action {
 		// Minecraft-bu (eruto) patch: scale the single upward push by our attribute.
 		// This start push is what decides how high you get - onTick only records the
 		// speed and onWorkingTickInClient only spawns particles, so the climb coasts
-		// on this one impulse. Cliff races (Arachnae 4.0, Feline 2.0) climb further.
+		// on this one impulse. Cliff races climb further: Arachnae 2.0, Feline 1.3.
+		// (This comment used to say 4.0 and 2.0, which never matched the datapack.)
 		double erutoWallClimb = player.getAttributeValue(Attributes.WALL_CLIMB.get());
 		player.setDeltaMovement(player
 				.getDeltaMovement()
