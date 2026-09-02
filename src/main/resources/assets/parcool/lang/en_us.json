@@ -57,6 +57,7 @@
   "parcool.sound.disable_parcool.subtitle": "ParCool Disabled",
   "parcool.sound.zipline.set.subtitle": "Zipline placed",
   "parcool.sound.zipline.remove.subtitle": "Zipline removed",
+  "parcool.sound.zipline.ride.subtitle": "Zipline whirring",
   "parcool.action.BreakfallReady": "Breakfall",
   "parcool.action.CatLeap": "CatLeap",
   "parcool.action.ChargeJump": "Charge Jump",

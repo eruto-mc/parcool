@@ -3,6 +3,7 @@ package com.alrex.parcool.common.action.impl;
 import com.alrex.parcool.client.animation.impl.RideZiplineAnimator;
 import com.alrex.parcool.client.input.KeyBindings;
 import com.alrex.parcool.client.input.KeyRecorder;
+import com.alrex.parcool.client.sound.ZiplineSoundInstance;
 import com.alrex.parcool.common.action.Action;
 import com.alrex.parcool.common.action.BehaviorEnforcer;
 import com.alrex.parcool.common.action.StaminaConsumeTiming;
@@ -11,8 +12,10 @@ import com.alrex.parcool.common.capability.IStamina;
 import com.alrex.parcool.common.capability.Parkourability;
 import com.alrex.parcool.common.entity.zipline.ZiplineRopeEntity;
 import com.alrex.parcool.common.zipline.Zipline;
+import com.alrex.parcool.config.ParCoolConfig;
 import com.alrex.parcool.utilities.BufferUtil;
 import com.alrex.parcool.utilities.VectorUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -44,6 +47,18 @@ public class RideZipline extends Action {
 
     public double getSlope() {
         return slope;
+    }
+
+    /**
+     * Minecraft-bu (eruto) patch: how fast this player is currently travelling
+     * along the rope, in blocks per tick.
+     *
+     * <p>Needed by the riding sound, which scales its volume and pitch with it.
+     * Only meaningful on the local client - {@link #onWorkingTickInLocalClient}
+     * is the only place that advances it.
+     */
+    public double getSpeed() {
+        return speed;
     }
 
     @Nullable
@@ -111,6 +126,12 @@ public class RideZipline extends Action {
                 }
         );
         parkourability.getBehaviorEnforcer().addMarkerCancellingSprint(ID_SPRINT_CANCEL, this::isDoing);
+        // マイクラ部（eruto）のパッチ: 滑っている間の音を鳴らす。
+        // ⚠ 自分が乗っているときだけ——他人のぶんは speed が同期されておらず、
+        //    ここで速さに合わせた音を作れない（同期しているのは acceleration と slope だけ）。
+        if (ParCoolConfig.Client.Booleans.EnableActionSounds.get() && player instanceof LocalPlayer localPlayer) {
+            Minecraft.getInstance().getSoundManager().play(new ZiplineSoundInstance(localPlayer));
+        }
         Animation animation = Animation.get(player);
         if (animation == null) return;
         animation.setAnimator(new RideZiplineAnimator());

@@ -29,6 +29,9 @@ public class SoundEvents {
     private static final SoundEvent PARCOOL_DISABLE_SOUND = SoundEvent.createVariableRangeEvent(new ResourceLocation(ParCool.MOD_ID, "parcool.disable"));
     private static final SoundEvent ZIPLINE_SET_SOUND = SoundEvent.createVariableRangeEvent(new ResourceLocation(ParCool.MOD_ID, "zipline.set"));
     private static final SoundEvent ZIPLINE_REMOVE_SOUND = SoundEvent.createVariableRangeEvent(new ResourceLocation(ParCool.MOD_ID, "zipline.remove"));
+    // マイクラ部（eruto）のパッチ: ジップラインを滑っている間ずっと鳴らす音。
+    // 中身は sounds.json でバニラのエリトラの滑空音を参照している。
+    private static final SoundEvent ZIPLINE_RIDE_SOUND = SoundEvent.createVariableRangeEvent(new ResourceLocation(ParCool.MOD_ID, "zipline.ride"));
 
     public static final RegistryObject<SoundEvent> VAULT = SOUNDS.register("action.vault", () -> VAULT_SOUND);
     public static final RegistryObject<SoundEvent> VERTICAL_WALL_RUN = SOUNDS.register("action.v_wall_run", () -> VERTICAL_WALL_RUN_SOUND);
@@ -49,6 +52,7 @@ public class SoundEvents {
     public static final RegistryObject<SoundEvent> PARCOOL_DISABLE = SOUNDS.register("action.disable", () -> PARCOOL_DISABLE_SOUND);
     public static final RegistryObject<SoundEvent> ZIPLINE_SET = SOUNDS.register("zipline.set", () -> ZIPLINE_SET_SOUND);
     public static final RegistryObject<SoundEvent> ZIPLINE_REMOVE = SOUNDS.register("zipline.remove", () -> ZIPLINE_REMOVE_SOUND);
+    public static final RegistryObject<SoundEvent> ZIPLINE_RIDE = SOUNDS.register("zipline.ride", () -> ZIPLINE_RIDE_SOUND);
 
     public static void registerAll(IEventBus modBus) {
         SOUNDS.register(modBus);

@@ -56,6 +56,7 @@
   "parcool.sound.disable_parcool.subtitle": "ParCoolが無効化される",
   "parcool.sound.zipline.set.subtitle": "ジップラインが置かれた",
   "parcool.sound.zipline.remove.subtitle": "ジップラインが取り外された",
+  "parcool.sound.zipline.ride.subtitle": "ジップラインを滑る音",
   "parcool.action.BreakfallReady": "ブレイクフォール",
   "parcool.action.CatLeap": "キャットリープ",
   "parcool.action.ChargeJump": "溜めジャンプ",
