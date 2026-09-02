@@ -41,7 +41,15 @@ public class Slide extends Action {
 	// ⚠ 上乗せの対象は「足がすぐ地面へ戻る坂」だけ——真下 SLOPE_GROUND_DEPTH 以内に
 	//    当たり判定が在ることを条件にする。崖から飛び出すと真下が空くので上乗せが止まり、
 	//    坂でもなくなるので持ち時間も減り始める。
-	private static final double SLOPE_GROUND_DEPTH = 2.5;
+	//
+	// ⚠⚠ 深さだけでは足りない。バニラの階段は1マス進んで1マス下がるので、
+	//    水平 0.9/tick まで速くなると 5 ティックで水平 4.5・自由落下 1.0 ＝ 3.5 ブロック浮く。
+	//    どんな深さにしても「速くなるほど坂から離れて判定が切れる」ことになるので、
+	//    下の SLOPE_STICK_ACCELERATION で坂へ引き寄せる。深さはその上での余裕。
+	private static final double SLOPE_GROUND_DEPTH = 2.0;
+	// 坂を滑っている間、宙に浮いているティックだけ下向きに足す加速。
+	// バニラの重力（0.08/tick）の約2倍で、上の計算で言う「浮き」を打ち消す。
+	private static final double SLOPE_STICK_ACCELERATION = 0.15;
 	// 1ブロック下るごとに何割上乗せするか。上限まで5ブロック。
 	private static final double SLOPE_BOOST_PER_BLOCK = 0.2;
 	// 上乗せの上限。1.0 = 素の2倍（0.45 → 0.9 /tick ＝ 9 → 18 m/s）。
@@ -131,7 +139,13 @@ public class Slide extends Action {
 			// ⚠ 段差を落ちている最中も坂の一部なので、そこでは 0.6 倍を掛けない。
 			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
 			boolean keepingSpeed = player.onGround() || onSlope;
-			player.setDeltaMovement((keepingSpeed ? vec : vec.scale(0.6)).add(0, player.getDeltaMovement().y(), 0));
+			double vy = player.getDeltaMovement().y();
+			// ⚠ 坂へ引き寄せる。速くなるほど段を飛び越えて宙を飛ぶので、これが無いと
+			//    自分の加速で坂から離れ、判定が切れて減速する——という堂々巡りになる。
+			if (onSlope && !player.onGround()) {
+				vy -= SLOPE_STICK_ACCELERATION;
+			}
+			player.setDeltaMovement((keepingSpeed ? vec : vec.scale(0.6)).add(0, vy, 0));
 		}
 	}
 
