@@ -103,6 +103,22 @@ public class Dodge extends Action {
 		}
 	}
 
+	/**
+	 * Minecraft-bu (eruto) patch: the move vector for a dodge direction, built
+	 * the same way {@code KeyBindings.getCurrentMoveVector()} builds it from
+	 * {@code player.input} - x carries the left impulse (A is +1), z the forward
+	 * one (W is +1).
+	 */
+	@OnlyIn(Dist.CLIENT)
+	private static Vec3 toMoveVector(DodgeDirection direction) {
+		return switch (direction) {
+			case Front -> new Vec3(0, 0, 1);
+			case Back -> new Vec3(0, 0, -1);
+			case Left -> new Vec3(1, 0, 0);
+			case Right -> new Vec3(-1, 0, 0);
+		};
+	}
+
 	private DodgeDirection dodgeDirection = null;
 	private int coolTime = 0;
 	private int successivelyCount = 0;
@@ -156,6 +172,13 @@ public class Dodge extends Action {
 			if (direction != null) dodgeVec = KeyBindings.getCurrentMoveVector();
 		}
 		if (direction == null || dodgeVec == null) return false;
+		// マイクラ部（eruto）のパッチ: 飛ぶ向きは押したキーから組み直す。
+		// KeyBindings 側でキーの押下を先に見るようにしたので direction は正しいが、
+		// dodgeVec は player.input 由来のままで、Better Third Person が書き換えた
+		// 途中の値（半円を描くために回している最中の向き）が入っている。
+		// ⚠ 下の handleCustomCameraRotationForDodge が direction を Front へ潰すので、
+		//    組み直すのはその手前でなければならない。
+		dodgeVec = toMoveVector(direction);
 		direction = AdditionalMods.betterThirdPerson().handleCustomCameraRotationForDodge(direction);
 		direction = AdditionalMods.shoulderSurfing().handleCustomCameraRotationForDodge(direction);
 		startInfo.putInt(direction.ordinal());

@@ -76,19 +76,40 @@ public class KeyBindings {
 		return mc.player != null && mc.player.input != null && mc.player.input.left && mc.player.input.right;
 	}
 
+	// ── マイクラ部（eruto）のパッチ: 移動の向きは、キーの押下を先に見る ──────
+	//
+	// Better Third Person はカメラの向きへ体を滑らかに向けるために
+	// player.input を毎ティック書き換える（上流 #383。半円を描く軌道を作るため、
+	// 移動ベクトルが常に前方から始まって少しずつ回る）。そのため input だけを見ると
+	// 「S を押しているのに前向き」と読める。
+	//
+	// ⚠ 実害: Dodge が見るのは S / A / D の二度押しだけなので、
+	//    三人称でカメラを切り離している間は回避が一度も出ない。
+	//    宙返り・崖しがみつきの横移動・ぶら下がりの移動も同じ入口を通る。
+	//
+	// ⚠ キーが押されていないときは従来どおり input を見る——ゲームパッドの入力は
+	//    キー割り当てを通らず input にしか出ないので、そちらを落とさないため。
+	private static boolean isKeyDown(KeyMapping key) {
+		return key != null && key.isDown();
+	}
+
 	public static Boolean isKeyForwardDown() {
+		if (mc.options != null && isKeyDown(mc.options.keyUp)) return true;
 		return mc.player != null && mc.player.input != null && mc.player.input.forwardImpulse > 0;
 	}
 
 	public static Boolean isKeyLeftDown() {
+		if (mc.options != null && isKeyDown(mc.options.keyLeft)) return true;
 		return mc.player != null && mc.player.input != null && mc.player.input.left;
 	}
 
 	public static Boolean isKeyRightDown() {
+		if (mc.options != null && isKeyDown(mc.options.keyRight)) return true;
 		return mc.player != null && mc.player.input != null && mc.player.input.right;
 	}
 
 	public static Boolean isKeyBackDown() {
+		if (mc.options != null && isKeyDown(mc.options.keyDown)) return true;
 		return mc.player != null && mc.player.input != null && mc.player.input.forwardImpulse < 0;
 	}
 
