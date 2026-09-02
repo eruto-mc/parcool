@@ -21,6 +21,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.ForgeMod;
 
 import javax.annotation.Nullable;
@@ -109,6 +111,14 @@ public class RideZipline extends Action {
                 && 0 <= currentT && currentT <= 1;
     }
 
+    // ⚠⚠ マイクラ部（eruto）のパッチ: この印が要る。
+    //    下で ZiplineSoundInstance を作っており、その型は SoundInstance を実装している。
+    //    ActionList の静的初期化が RideZipline::new（invokedynamic）でこのクラスを読むと、
+    //    印が無いとサーバでもメソッドが残り、SoundInstance の解決で
+    //    「Attempted to load class ... for invalid dist DEDICATED_SERVER」で
+    //    ⚠ **ParCool ごと起動に失敗する**（2026-09-03 に遊び用サーバで実際に踏んだ）。
+    //    基底の Action#onStartInLocalClient も同じ印を持つ空実装なので、消えても呼び先は在る。
+    @OnlyIn(Dist.CLIENT)
     @Override
     public void onStartInLocalClient(Player player, Parkourability parkourability, IStamina stamina, ByteBuffer startData) {
         if (ridingZipline == null) {
