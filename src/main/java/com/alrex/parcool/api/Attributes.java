@@ -59,6 +59,39 @@ public class Attributes {
      */
     public static final RegistryObject<Attribute> PARKOUR = ATTRIBUTES.register("parkour", () -> new RangedAttribute("parcool.parkour", 1.0, 0.0, 1.0).setSyncable(true));
 
+    /**
+     * Minecraft-bu (eruto) patch: how far this player's Dodge carries them.
+     *
+     * <p>Dodge sets one flat horizontal velocity ({@code 0.9 * speedModifier}) and
+     * then coasts on vanilla ground friction, so that single impulse decides the
+     * whole distance - the 11-tick length never truncates it (what is left after
+     * 11 ticks is 0.13% of the initial speed).
+     *
+     * <p>Upstream exposes the modifier only as a client config capped by a server
+     * limitation, and limitations can merely tighten ({@code Math.min}), so there
+     * was no way to give one race a longer dodge without handing everyone the
+     * higher cap first.
+     *
+     * <p>This multiplies on top of the config, so the server cap keeps its meaning
+     * and Origins can set it per race with a plain {@code origins:attribute}.
+     * 1.0 keeps vanilla ParCool behaviour.
+     */
+    public static final RegistryObject<Attribute> DODGE_DISTANCE = ATTRIBUTES.register("dodge_distance", () -> new RangedAttribute("parcool.dodge_distance", 1.0, 0.1, 5.0).setSyncable(true));
+
+    /**
+     * Minecraft-bu (eruto) patch: how soon this player may dodge again.
+     *
+     * <p>The base cooldown is not the limit and cannot become one: its config floor
+     * equals {@code Dodge.MAX_TICK}, so it always expires exactly as the dodge
+     * ends. What actually spaces dodges out is the successive-dodge gate - after
+     * {@code successive_dodge_count} dodges you are locked out for
+     * {@code successive_dodge_cool_time} ticks.
+     *
+     * <p>This divides that lockout, so a nimble race recovers sooner. 1.0 keeps
+     * vanilla ParCool behaviour.
+     */
+    public static final RegistryObject<Attribute> DODGE_RECOVERY = ATTRIBUTES.register("dodge_recovery", () -> new RangedAttribute("parcool.dodge_recovery", 1.0, 0.1, 10.0).setSyncable(true));
+
     public static void registerAll(IEventBus bus) {
         ATTRIBUTES.register(bus);
     }

@@ -1,5 +1,6 @@
 package com.alrex.parcool.common.action.impl;
 
+import com.alrex.parcool.api.Attributes;
 import com.alrex.parcool.api.SoundEvents;
 import com.alrex.parcool.client.animation.impl.DodgeAnimator;
 import com.alrex.parcool.client.input.KeyBindings;
@@ -44,11 +45,16 @@ public class Dodge extends Action {
 		);
 	}
 
-	private static int getSuccessiveCoolTime(ActionInfo info) {
-		return Math.max(
+	// Minecraft-bu (eruto) patch: divide the successive-dodge lockout by our
+	// attribute. This gate - not the base cooldown - is what spaces dodges out:
+	// getMaxCoolTime cannot fall below Dodge.MAX_TICK (that is the config floor),
+	// so it always expires exactly as the dodge ends and never delays anything.
+	private static int getSuccessiveCoolTime(Player player, ActionInfo info) {
+		int base = Math.max(
 				info.getClientSetting().get(ParCoolConfig.Client.Integers.SuccessiveDodgeCoolTime),
 				info.getServerLimitation().get(ParCoolConfig.Server.Integers.SuccessiveDodgeCoolTime)
 		);
+		return (int) Math.ceil(base / player.getAttributeValue(Attributes.DODGE_RECOVERY.get()));
 	}
 
 	public enum DodgeDirection {
@@ -101,6 +107,12 @@ public class Dodge extends Action {
 	private int coolTime = 0;
 	private int successivelyCount = 0;
 	private int successivelyCoolTick = 0;
+	// Minecraft-bu (eruto) patch: the lockout length actually used at the last
+	// start. The HUD needs it to draw the bar, and it is per-player now, so it
+	// cannot be recomputed from the config alone. Only read while
+	// isInSuccessiveCoolDown() is true, which cannot happen before the first
+	// dodge has set it - so it is never divided by zero.
+	private int successivelyCoolTickMax = 0;
 
 	@OnlyIn(Dist.CLIENT)
 	@Override
@@ -188,13 +200,18 @@ public class Dodge extends Action {
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get()) {
 			player.playSound(SoundEvents.DODGE.get(), 1f, 1f);
 		}
-		successivelyCoolTick = getSuccessiveCoolTime(parkourability.getActionInfo());
+		successivelyCoolTick = getSuccessiveCoolTime(player, parkourability.getActionInfo());
+		successivelyCoolTickMax = successivelyCoolTick;
 
 		if (!player.onGround()) return;
 		var cameraEntity = Minecraft.getInstance().getCameraEntity();
 		var cameraYRot = cameraEntity != null ? cameraEntity.getYRot() : 0;
 		dodgeVec = VectorUtil.rotateYDegrees(dodgeVec, cameraYRot);
-		dodgeVec = dodgeVec.scale(0.9 * getSpeedModifier(parkourability.getActionInfo()));
+		// Minecraft-bu (eruto) patch: scale the one impulse that decides the
+		// distance. Multiplied on top of the config so the server cap still means
+		// what it says; see api/Attributes#DODGE_DISTANCE.
+		dodgeVec = dodgeVec.scale(0.9 * getSpeedModifier(parkourability.getActionInfo())
+				* player.getAttributeValue(Attributes.DODGE_DISTANCE.get()));
 		if (AdditionalMods.isCameraDecoupled()) player.setYRot(VectorUtil.toYaw(dodgeVec));
 		player.setDeltaMovement(dodgeVec);
 
@@ -230,7 +247,7 @@ public class Dodge extends Action {
 
 	public float getCoolDownPhase(ActionInfo info) {
 		int maxCoolTime = getMaxCoolTime(info);
-		int successiveMaxCoolTime = getSuccessiveCoolTime(info);
+		int successiveMaxCoolTime = successivelyCoolTickMax;
 		return Math.min(
 				(float) (maxCoolTime - getCoolTime()) / maxCoolTime,
 				isInSuccessiveCoolDown(info) ? (float) (successiveMaxCoolTime - getSuccessivelyCoolTick()) / (successiveMaxCoolTime) : 1
@@ -246,7 +263,7 @@ public class Dodge extends Action {
 	public float getStatusValue(LocalPlayer player, Parkourability parkourability) {
 		ActionInfo info = parkourability.getActionInfo();
 		int maxCoolTime = getMaxCoolTime(info);
-		int successiveMaxCoolTime = getSuccessiveCoolTime(info);
+		int successiveMaxCoolTime = successivelyCoolTickMax;
 		return Math.max(
 				(float) getCoolTime() / maxCoolTime,
 				isInSuccessiveCoolDown(info) ? (float) (getSuccessivelyCoolTick()) / (successiveMaxCoolTime) : 0

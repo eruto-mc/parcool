@@ -23,5 +23,7 @@ public class AddAttributesHandler {
         event.add(EntityType.PLAYER, Attributes.WALL_CLIMB.get());
         event.add(EntityType.PLAYER, Attributes.WALL_CLIMB_CHAIN.get());
         event.add(EntityType.PLAYER, Attributes.PARKOUR.get());
+        event.add(EntityType.PLAYER, Attributes.DODGE_DISTANCE.get());
+        event.add(EntityType.PLAYER, Attributes.DODGE_RECOVERY.get());
     }
 }
