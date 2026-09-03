@@ -78,8 +78,10 @@ public class Slide extends Action {
 	//    横から当たるたびに体が持ち上げられ、⚠ **速いほど跳ねて見えていた**。
 	//    ⚠ この持ち上げは Entity#move の中で位置を直に動かすもので、
 	//    deltaMovement を通らない——だから速度をいじっても止められない。
-	//    0.6 − 0.5 ＝ 0.1 を残すので、カーペットや感圧板は今までどおり越える。
-	private static final double SLIDE_STEP_HEIGHT_CUT = 0.5;
+	//    ⚠ 0.6 を**全部**削る（2026-09-03 に 0.5 から上げた）。0.1 残していたが、
+	//    跳ねが残った。滑っている間は段を1つも登らせないほうが、
+	//    「滑りが上へは行かない」という見た目と揃う。
+	private static final double SLIDE_STEP_HEIGHT_CUT = 0.6;
 
 	// ⚠⚠ 足元のすぐ下に地面が在るなら、そこへ吸い付ける（2026-09-03・あなたの案）。
 	//    段を飛び越えて宙を飛ぶのを止めるので、階段の面に沿って滑る。
@@ -100,9 +102,6 @@ public class Slide extends Action {
 
 	// いま滑っている速さ（ブロック/tick）。毎ティック加速度を足して育てる。
 	private double slideSpeed = 0;
-	// ⚠ 直前のティックで坂を下っていたか。段差の削りを onTick から付け外しするのに要る
-	//    （onTick は毎ティック呼ばれるが、坂かどうかを自分では計算できない）。
-	private boolean descendingNow = false;
 	private double lastY = Double.NaN;
 	private int slopeTick = 0;
 
@@ -139,7 +138,6 @@ public class Slide extends Action {
 		// マイクラ部（eruto）のパッチ: 滑りの速さを初期化する。
 		// 0 を入れておくと、最初のティックで素の速さから始まる。
 		slideSpeed = 0;
-		descendingNow = false;
 		lastY = player.getY();
 		slopeTick = 0;
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
@@ -169,7 +167,6 @@ public class Slide extends Action {
 			double drop = Double.isNaN(lastY) ? 0 : lastY - y;
 			lastY = y;
 			boolean onSlope = drop > 0.01 && hasGroundBelow(player);
-			descendingNow = onSlope;
 
 			AttributeInstance attr = player.getAttribute(Attributes.MOVEMENT_SPEED);
 			double baseSpeed = (attr != null ? attr.getValue() : 0.1) * 4.5;
@@ -345,10 +342,13 @@ public class Slide extends Action {
 		// ⚠⚠ onStop は ActionProcessor から**一度も呼ばれていない**（2026-09-03 に grep で確認）。
 		//    そちらに戻す処理を置くと、⚠ **一度滑っただけで以後ずっと段差を登れなくなる**。
 		//    onTick は isDoing() でなくても毎ティック呼ばれるので、ここなら必ず戻る。
-		// ⚠⚠ 削るのは**下っている間だけ**（2026-09-03・あなたの指摘）。
-		//    滑っている間ずっと削ると、⚠ **上りや平地で段に引っかかる**。
-		//    跳ねを止めたいのは下りだけなので、そこに絞れば害が出ない。
-		setStepHeightCut(player, isDoing() && descendingNow);
+		//
+		// ⚠⚠ 一度「下っている間だけ」に絞ったが、**それが振動を作っていた**（2026-09-03）。
+		//    段差登りで上がったティックは「下っていない」ので削りが外れ、
+		//    ⚠ **次のティックでまた登れてしまう**——登る／削るを交互に繰り返す形だった。
+		//    滑っている間はずっと削る。⚠ 上りでは段に引っかかるが、
+		//    「滑りが上へは行かない」はあなたの見立てどおり自然な挙動。
+		setStepHeightCut(player, isDoing());
 	}
 
 	/**
