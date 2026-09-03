@@ -21,7 +21,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -77,6 +80,12 @@ public class Slide extends Action {
 	//    deltaMovement を通らない——だから速度をいじっても止められない。
 	//    0.6 − 0.5 ＝ 0.1 を残すので、カーペットや感圧板は今までどおり越える。
 	private static final double SLIDE_STEP_HEIGHT_CUT = 0.5;
+
+	// ⚠⚠ 足元のすぐ下に地面が在るなら、そこへ吸い付ける（2026-09-03・あなたの案）。
+	//    段を飛び越えて宙を飛ぶのを止めるので、階段の面に沿って滑る。
+	//    ⚠ 引き寄せ（下向きに足す加速）だけでは、速いほど放物線が伸びて跳ねていた。
+	//    1.5 ＝ 段3つぶん。これより深いところに在る地面は「崖」として扱い、吸着しない。
+	private static final double SLIDE_SNAP_DEPTH = 1.5;
 	private static final UUID STEP_HEIGHT_MODIFIER_UUID = UUID.fromString("8f7c2e14-6b3a-4d51-9e0f-2a6d5c81b4e7");
 	private static final String STEP_HEIGHT_MODIFIER_NAME = "parcool.modifier.slide_step_height";
 	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
@@ -173,9 +182,13 @@ public class Slide extends Action {
 			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
 			boolean keepingSpeed = player.onGround() || onSlope;
 			double vy = player.getDeltaMovement().y();
-			// ⚠ 坂へ引き寄せる。速くなるほど段を飛び越えて宙を飛ぶので、これが無いと
-			//    自分の加速で坂から離れ、判定が切れて減速する——という堂々巡りになる。
-			if (onSlope && !player.onGround()) {
+			// ⚠⚠ 足元のすぐ下に地面が在るなら、1 ティックで着く速さにして吸い付ける。
+			//    これが「地面にべったり」の本体。宙に浮かないので跳ねようがない。
+			double gap = onSlope ? gapToGroundBelow(player) : Double.NaN;
+			if (!Double.isNaN(gap) && gap > 0) {
+				vy = -gap;
+			} else if (onSlope && !player.onGround()) {
+				// 吸着できる地面が届かないとき（段を大きく飛び越えた等）だけ引き寄せる。
 				vy -= SLOPE_STICK_ACCELERATION;
 			}
 			player.setDeltaMovement((keepingSpeed ? vec : vec.scale(0.6)).add(0, vy, 0));
@@ -191,6 +204,24 @@ public class Slide extends Action {
 	 * always have floor right below; a cliff does not, so the speed-up stops
 	 * there and the slide runs out of time like it used to.
 	 */
+	/**
+	 * Minecraft-bu (eruto) patch: how far the floor is below the player's feet,
+	 * or NaN when there is nothing within {@link #SLIDE_SNAP_DEPTH}.
+	 *
+	 * <p>Used to pin the slide to the surface. Giving the exact gap as this
+	 * tick's downward speed lands the player on the floor in one tick, so a
+	 * staircase is followed step by step instead of being sailed over - which is
+	 * what read as bouncing once the slide got fast.
+	 */
+	private static double gapToGroundBelow(Player player) {
+		Vec3 from = new Vec3(player.getX(), player.getY() + 0.05, player.getZ());
+		Vec3 to = new Vec3(player.getX(), player.getY() - SLIDE_SNAP_DEPTH, player.getZ());
+		BlockHitResult hit = player.level().clip(new ClipContext(
+				from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+		if (hit.getType() == HitResult.Type.MISS) return Double.NaN;
+		return player.getY() - hit.getLocation().y;
+	}
+
 	private static boolean hasGroundBelow(Player player) {
 		AABB box = player.getBoundingBox();
 		AABB probe = new AABB(box.minX, box.minY - SLOPE_GROUND_DEPTH, box.minZ, box.maxX, box.minY, box.maxZ);
@@ -273,16 +304,15 @@ public class Slide extends Action {
 		Pose pose = Pose.SWIMMING;
 		player.setSprinting(false);
 		player.setPose(pose);
-		// マイクラ部（eruto）のパッチ: 滑っている間は段差を登らせない。
-		// 毎ティック付け直す（FastSwim が SWIM_SPEED でやっているのと同じ形）。
-		setStepHeightCut(player, true);
 	}
 
 	@Override
-	public void onStop(Player player) {
-		// マイクラ部（eruto）のパッチ: 段差の削りを必ず戻す。
-		// ⚠ ここは両側で呼ばれる。付けたまま残すと、以後ずっと段差を登れなくなる。
-		setStepHeightCut(player, false);
+	public void onTick(Player player, Parkourability parkourability, IStamina stamina) {
+		// マイクラ部（eruto）のパッチ: 段差の削りをここで付け外しする。
+		// ⚠⚠ onStop は ActionProcessor から**一度も呼ばれていない**（2026-09-03 に grep で確認）。
+		//    そちらに戻す処理を置くと、⚠ **一度滑っただけで以後ずっと段差を登れなくなる**。
+		//    onTick は isDoing() でなくても毎ティック呼ばれるので、ここなら必ず戻る。
+		setStepHeightCut(player, isDoing());
 	}
 
 	/**
