@@ -83,9 +83,15 @@ public class Slide extends Action {
 
 	// ⚠⚠ 足元のすぐ下に地面が在るなら、そこへ吸い付ける（2026-09-03・あなたの案）。
 	//    段を飛び越えて宙を飛ぶのを止めるので、階段の面に沿って滑る。
-	//    ⚠ 引き寄せ（下向きに足す加速）だけでは、速いほど放物線が伸びて跳ねていた。
-	//    1.5 ＝ 段3つぶん。これより深いところに在る地面は「崖」として扱い、吸着しない。
-	private static final double SLIDE_SNAP_DEPTH = 1.5;
+	//
+	// ⚠ 2度直した:
+	//    ① 深さ 1.5 → **0.5**。段1つぶんで足りる（あなたの指摘）。
+	//       深いと大きな段差でも吸い付いて、落ち方が不自然になる
+	//    ② ⚠⚠ **「坂を下っている間」を条件にしていたのが誤り**——あの判定は
+	//       「このティックで下がったか」なので、⚠ **跳ね上がっている最中は対象外**だった。
+	//       吸い付けたい瞬間にちょうど働いていない。滑っている間は常に当てる
+	//    ③ 速度で近づけるのをやめ、**位置をそのまま置く**（あなたの案）
+	private static final double SLIDE_SNAP_DEPTH = 0.5;
 	private static final UUID STEP_HEIGHT_MODIFIER_UUID = UUID.fromString("8f7c2e14-6b3a-4d51-9e0f-2a6d5c81b4e7");
 	private static final String STEP_HEIGHT_MODIFIER_NAME = "parcool.modifier.slide_step_height";
 	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
@@ -182,11 +188,15 @@ public class Slide extends Action {
 			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
 			boolean keepingSpeed = player.onGround() || onSlope;
 			double vy = player.getDeltaMovement().y();
-			// ⚠⚠ 足元のすぐ下に地面が在るなら、1 ティックで着く速さにして吸い付ける。
-			//    これが「地面にべったり」の本体。宙に浮かないので跳ねようがない。
-			double gap = onSlope ? gapToGroundBelow(player) : Double.NaN;
+			// ⚠⚠ 足元のすぐ下に地面が在るなら、そこへ置く。これが「地面にべったり」の本体。
+			//    ⚠ 滑っている間は常に当てる——坂を下っているかで絞ると、
+			//    跳ね上がっている最中に働かない（まさにそこで吸い付けたい）。
+			double gap = gapToGroundBelow(player);
 			if (!Double.isNaN(gap) && gap > 0) {
-				vy = -gap;
+				player.setPos(player.getX(), player.getY() - gap, player.getZ());
+				vy = 0;
+				// 吸い付けた分は落下として数えない。
+				player.fallDistance = 0;
 			} else if (onSlope && !player.onGround()) {
 				// 吸着できる地面が届かないとき（段を大きく飛び越えた等）だけ引き寄せる。
 				vy -= SLOPE_STICK_ACCELERATION;
@@ -205,6 +215,22 @@ public class Slide extends Action {
 	 * there and the slide runs out of time like it used to.
 	 */
 	/**
+	 * Minecraft-bu (eruto) patch: scale a height written for a normal-sized
+	 * player to whoever is actually sliding.
+	 *
+	 * <p>Our races differ in size (Pehkui), so a flat 0.5 blocks reads as "one
+	 * stair step" for a human and "most of the body" for a small one. 1.8 is
+	 * vanilla's standing height, the basis {@code Vault} already uses.
+	 *
+	 * <p>⚠ Asks for the STANDING dimensions on purpose. A slide sets the pose to
+	 * SWIMMING, so {@code getBbHeight()} would return the crawling height and we
+	 * would mistake posture for body size.
+	 */
+	private static double scaled(Player player, double height) {
+		return height * (player.getDimensions(Pose.STANDING).height / 1.8);
+	}
+
+	/**
 	 * Minecraft-bu (eruto) patch: how far the floor is below the player's feet,
 	 * or NaN when there is nothing within {@link #SLIDE_SNAP_DEPTH}.
 	 *
@@ -214,8 +240,9 @@ public class Slide extends Action {
 	 * what read as bouncing once the slide got fast.
 	 */
 	private static double gapToGroundBelow(Player player) {
+		// ⚠ getY() は足元。0.05 だけ上から撃つのは、接地している足元の面を拾うため。
 		Vec3 from = new Vec3(player.getX(), player.getY() + 0.05, player.getZ());
-		Vec3 to = new Vec3(player.getX(), player.getY() - SLIDE_SNAP_DEPTH, player.getZ());
+		Vec3 to = new Vec3(player.getX(), player.getY() - scaled(player, SLIDE_SNAP_DEPTH), player.getZ());
 		BlockHitResult hit = player.level().clip(new ClipContext(
 				from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
 		if (hit.getType() == HitResult.Type.MISS) return Double.NaN;
@@ -224,7 +251,8 @@ public class Slide extends Action {
 
 	private static boolean hasGroundBelow(Player player) {
 		AABB box = player.getBoundingBox();
-		AABB probe = new AABB(box.minX, box.minY - SLOPE_GROUND_DEPTH, box.minZ, box.maxX, box.minY, box.maxZ);
+		double depth = scaled(player, SLOPE_GROUND_DEPTH);
+		AABB probe = new AABB(box.minX, box.minY - depth, box.minZ, box.maxX, box.minY, box.maxZ);
 		return !player.level().noCollision(player, probe);
 	}
 
@@ -337,7 +365,7 @@ public class Slide extends Action {
 			attr.addTransientModifier(new AttributeModifier(
 					STEP_HEIGHT_MODIFIER_UUID,
 					STEP_HEIGHT_MODIFIER_NAME,
-					-SLIDE_STEP_HEIGHT_CUT,
+					-scaled(player, SLIDE_STEP_HEIGHT_CUT),
 					AttributeModifier.Operation.ADDITION
 			));
 		}
