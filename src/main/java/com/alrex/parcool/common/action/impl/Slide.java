@@ -17,6 +17,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.RenderShape;
@@ -24,9 +25,11 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.common.ForgeMod;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.util.UUID;
 
 public class Slide extends Action {
     private static final BehaviorEnforcer.ID ID_JUMP_CANCEL = BehaviorEnforcer.newID();
@@ -66,6 +69,16 @@ public class Slide extends Action {
 	private static final double SLIDE_FRICTION = 0.1;
 	// 速さの上限（ブロック/tick）。0.9 ＝ 18 m/s ＝ 素の滑り 0.45 の2倍。
 	private static final double MAX_SLIDE_SPEED = 0.9;
+
+	// ⚠⚠ 滑っている間だけ、段差を登る高さを削る（2026-09-03）。
+	//    バニラは 0.6 ブロックまで自動で登る。階段ブロックの段は 0.5 なので、
+	//    横から当たるたびに体が持ち上げられ、⚠ **速いほど跳ねて見えていた**。
+	//    ⚠ この持ち上げは Entity#move の中で位置を直に動かすもので、
+	//    deltaMovement を通らない——だから速度をいじっても止められない。
+	//    0.6 − 0.5 ＝ 0.1 を残すので、カーペットや感圧板は今までどおり越える。
+	private static final double SLIDE_STEP_HEIGHT_CUT = 0.5;
+	private static final UUID STEP_HEIGHT_MODIFIER_UUID = UUID.fromString("8f7c2e14-6b3a-4d51-9e0f-2a6d5c81b4e7");
+	private static final String STEP_HEIGHT_MODIFIER_NAME = "parcool.modifier.slide_step_height";
 	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
 	//    終わらない形を残さないために置く。
 	private static final int MAX_SLOPE_EXTENSION_TICK = 600;
@@ -160,10 +173,6 @@ public class Slide extends Action {
 			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
 			boolean keepingSpeed = player.onGround() || onSlope;
 			double vy = player.getDeltaMovement().y();
-			// ⚠⚠ 段の角に当たって押し上げられた分は捨てる（2026-09-03）。
-			//    バニラは 0.6 ブロックまで自動で登るので、階段ブロックの段（0.5）へ
-			//    横から当たるたびに上向きの速度が付き、⚠ **走るより跳ねて見えていた**。
-			if (onSlope && vy > 0) vy = 0;
 			// ⚠ 坂へ引き寄せる。速くなるほど段を飛び越えて宙を飛ぶので、これが無いと
 			//    自分の加速で坂から離れ、判定が切れて減速する——という堂々巡りになる。
 			if (onSlope && !player.onGround()) {
@@ -264,5 +273,43 @@ public class Slide extends Action {
 		Pose pose = Pose.SWIMMING;
 		player.setSprinting(false);
 		player.setPose(pose);
+		// マイクラ部（eruto）のパッチ: 滑っている間は段差を登らせない。
+		// 毎ティック付け直す（FastSwim が SWIM_SPEED でやっているのと同じ形）。
+		setStepHeightCut(player, true);
+	}
+
+	@Override
+	public void onStop(Player player) {
+		// マイクラ部（eruto）のパッチ: 段差の削りを必ず戻す。
+		// ⚠ ここは両側で呼ばれる。付けたまま残すと、以後ずっと段差を登れなくなる。
+		setStepHeightCut(player, false);
+	}
+
+	/**
+	 * Minecraft-bu (eruto) patch: take most of the auto step-up away while sliding.
+	 *
+	 * <p>Vanilla lifts the player over anything up to 0.6 blocks, and a stair step
+	 * is 0.5, so sliding down a staircase bumps the body upward at every step -
+	 * the faster the slide, the more it reads as bouncing. That lift happens
+	 * inside {@code Entity#move}, which moves the position directly and never
+	 * touches {@code deltaMovement}, so it cannot be cancelled from the velocity
+	 * side.
+	 *
+	 * <p>Leaving 0.1 keeps carpets and pressure plates passable.
+	 */
+	private static void setStepHeightCut(Player player, boolean on) {
+		AttributeInstance attr = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
+		if (attr == null) return;
+		if (attr.getModifier(STEP_HEIGHT_MODIFIER_UUID) != null) {
+			attr.removeModifier(STEP_HEIGHT_MODIFIER_UUID);
+		}
+		if (on) {
+			attr.addTransientModifier(new AttributeModifier(
+					STEP_HEIGHT_MODIFIER_UUID,
+					STEP_HEIGHT_MODIFIER_NAME,
+					-SLIDE_STEP_HEIGHT_CUT,
+					AttributeModifier.Operation.ADDITION
+			));
+		}
 	}
 }
