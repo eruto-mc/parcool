@@ -21,10 +21,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -83,17 +80,16 @@ public class Slide extends Action {
 	//    「滑りが上へは行かない」という見た目と揃う。
 	private static final double SLIDE_STEP_HEIGHT_CUT = 0.6;
 
-	// ⚠⚠ 足元のすぐ下に地面が在るなら、そこへ吸い付ける（2026-09-03・あなたの案）。
-	//    段を飛び越えて宙を飛ぶのを止めるので、階段の面に沿って滑る。
+	// ⚠⚠ 地面への吸着は 2026-09-03 に**外した**。経緯を残す（同じ道をもう一度作らないため）:
 	//
-	// ⚠ 2度直した:
-	//    ① 深さ 1.5 → **0.5**。段1つぶんで足りる（あなたの指摘）。
-	//       深いと大きな段差でも吸い付いて、落ち方が不自然になる
-	//    ② ⚠⚠ **「坂を下っている間」を条件にしていたのが誤り**——あの判定は
-	//       「このティックで下がったか」なので、⚠ **跳ね上がっている最中は対象外**だった。
-	//       吸い付けたい瞬間にちょうど働いていない。滑っている間は常に当てる
-	//    ③ 速度で近づけるのをやめ、**位置をそのまま置く**（あなたの案）
-	private static final double SLIDE_SNAP_DEPTH = 0.5;
+	//    足元のすぐ下に地面が在るならそこへ位置を置く、という作りだった。
+	//    ⚠ 段差登りを止めた今、持ち上げ自体が起きないので**戻す相手が居ない**。
+	//    ⚠⚠ しかも害があった——地面を**中心から下へ1本レイを撃つ**だけで探していたので、
+	//    段の縁では中心の真下が「次の段」を指す一方、体（幅 0.6）はまだ手前の段に乗っている。
+	//    そこで位置を下げると**体が手前の段へめり込み**、次の移動処理で押し出される。
+	//    ⚠ **ハーフブロックの階段を下るときの引っかかり**がこれだった。
+	//
+	//    もう一度やるなら、中心1本ではなく**当たり判定の箱を下へ動かして**距離を測ること。
 	private static final UUID STEP_HEIGHT_MODIFIER_UUID = UUID.fromString("8f7c2e14-6b3a-4d51-9e0f-2a6d5c81b4e7");
 	private static final String STEP_HEIGHT_MODIFIER_NAME = "parcool.modifier.slide_step_height";
 	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
@@ -190,17 +186,9 @@ public class Slide extends Action {
 			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
 			boolean keepingSpeed = player.onGround() || onSlope;
 			double vy = player.getDeltaMovement().y();
-			// ⚠⚠ 足元のすぐ下に地面が在るなら、そこへ置く。これが「地面にべったり」の本体。
-			//    ⚠ 滑っている間は常に当てる——坂を下っているかで絞ると、
-			//    跳ね上がっている最中に働かない（まさにそこで吸い付けたい）。
-			double gap = gapToGroundBelow(player);
-			if (!Double.isNaN(gap) && gap > 0) {
-				player.setPos(player.getX(), player.getY() - gap, player.getZ());
-				vy = 0;
-				// 吸い付けた分は落下として数えない。
-				player.fallDistance = 0;
-			} else if (onSlope && !player.onGround()) {
-				// 吸着できる地面が届かないとき（段を大きく飛び越えた等）だけ引き寄せる。
+			// ⚠ 坂へ引き寄せる。速くなるほど段を飛び越えて宙を飛ぶので、これが無いと
+			//    自分の加速で坂から離れ、判定が切れて減速する——という堂々巡りになる。
+			if (onSlope && !player.onGround()) {
 				vy -= SLOPE_STICK_ACCELERATION;
 			}
 			player.setDeltaMovement((keepingSpeed ? vec : vec.scale(0.6)).add(0, vy, 0));
@@ -230,25 +218,6 @@ public class Slide extends Action {
 	 */
 	private static double scaled(Player player, double height) {
 		return height * (player.getDimensions(Pose.STANDING).height / 1.8);
-	}
-
-	/**
-	 * Minecraft-bu (eruto) patch: how far the floor is below the player's feet,
-	 * or NaN when there is nothing within {@link #SLIDE_SNAP_DEPTH}.
-	 *
-	 * <p>Used to pin the slide to the surface. Giving the exact gap as this
-	 * tick's downward speed lands the player on the floor in one tick, so a
-	 * staircase is followed step by step instead of being sailed over - which is
-	 * what read as bouncing once the slide got fast.
-	 */
-	private static double gapToGroundBelow(Player player) {
-		// ⚠ getY() は足元。0.05 だけ上から撃つのは、接地している足元の面を拾うため。
-		Vec3 from = new Vec3(player.getX(), player.getY() + 0.05, player.getZ());
-		Vec3 to = new Vec3(player.getX(), player.getY() - scaled(player, SLIDE_SNAP_DEPTH), player.getZ());
-		BlockHitResult hit = player.level().clip(new ClipContext(
-				from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
-		if (hit.getType() == HitResult.Type.MISS) return Double.NaN;
-		return player.getY() - hit.getLocation().y;
 	}
 
 	private static boolean hasGroundBelow(Player player) {
