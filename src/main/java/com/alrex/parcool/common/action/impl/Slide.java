@@ -50,20 +50,28 @@ public class Slide extends Action {
 	// 坂を滑っている間、宙に浮いているティックだけ下向きに足す加速。
 	// バニラの重力（0.08/tick）の約2倍で、上の計算で言う「浮き」を打ち消す。
 	private static final double SLOPE_STICK_ACCELERATION = 0.15;
-	// 上乗せが最大になるまでに下る高さ（ブロック）。
-	// ⚠ 2026-09-03 に線形（1ブロックあたり2割）から二次へ変えた——
-	//    線形だと最初から効きが同じで、⚠ **2段下りただけで走りの 2.25 倍**になっていた。
-	//    いまは下った高さの2乗に比例するので、初めはほとんど変わらず、長い坂ほど効いてくる。
-	private static final double SLOPE_FULL_DROP = 12.0;
-	// 上乗せの上限。1.0 = 素の2倍（0.45 → 0.9 /tick ＝ 9 → 18 m/s）。
-	private static final double MAX_SLOPE_BOOST = 1.0;
+	// ── 速さの決め方（2026-09-03 に2度目の作り直し） ────────────────
+	//
+	// 初めは「下った高さに比例して上乗せ」（線形）、次に「その2乗」にしたが、
+	// ⚠ どちらも当部が考えた式で、⚠ **坂の急さを見ていなかった**。
+	// 緩い坂も急な坂も、同じ高さを下れば同じだけ速くなる形だった。
+	//
+	// いまは物理そのまま——斜面に沿った重力の成分から摩擦を引く:
+	//
+	//     加速度 = SLIDE_GRAVITY × (sinθ − SLIDE_FRICTION × cosθ)
+	//
+	// 急な坂ほど強く加速し、平らに近づくと摩擦だけが残って落ち着く。
+	// バニラの階段は1マス進んで1マス下がる＝45度なので、sinθ・cosθ とも 0.707。
+	private static final double SLIDE_GRAVITY = 0.08;
+	private static final double SLIDE_FRICTION = 0.1;
+	// 速さの上限（ブロック/tick）。0.9 ＝ 18 m/s ＝ 素の滑り 0.45 の2倍。
+	private static final double MAX_SLIDE_SPEED = 0.9;
 	// ⚠ 「坂が続く限り滑れる」の安全弁。30秒。地形では届かないが、
 	//    終わらない形を残さないために置く。
 	private static final int MAX_SLOPE_EXTENSION_TICK = 600;
 
-	private double slopeBoost = 0;
-	// この滑りで下った高さの累計（ブロック）。上乗せはこれの2乗から出す。
-	private double slopeDrop = 0;
+	// いま滑っている速さ（ブロック/tick）。毎ティック加速度を足して育てる。
+	private double slideSpeed = 0;
 	private double lastY = Double.NaN;
 	private int slopeTick = 0;
 
@@ -97,9 +105,9 @@ public class Slide extends Action {
 	@Override
 	public void onStartInLocalClient(Player player, Parkourability parkourability, IStamina stamina, ByteBuffer startData) {
 		slidingVec = new Vec3(startData.getDouble(), 0, startData.getDouble());
-		// マイクラ部（eruto）のパッチ: 坂の上乗せを初期化する。
-		slopeBoost = 0;
-		slopeDrop = 0;
+		// マイクラ部（eruto）のパッチ: 滑りの速さを初期化する。
+		// 0 を入れておくと、最初のティックで素の速さから始まる。
+		slideSpeed = 0;
 		lastY = player.getY();
 		slopeTick = 0;
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
@@ -125,31 +133,37 @@ public class Slide extends Action {
 	@Override
 	public void onWorkingTickInLocalClient(Player player, Parkourability parkourability, IStamina stamina) {
 		if (slidingVec != null) {
-			// マイクラ部（eruto）のパッチ: 坂を下った高さのぶんだけ速さを上乗せする。
 			double y = player.getY();
 			double drop = Double.isNaN(lastY) ? 0 : lastY - y;
 			lastY = y;
 			boolean onSlope = drop > 0.01 && hasGroundBelow(player);
+
+			AttributeInstance attr = player.getAttribute(Attributes.MOVEMENT_SPEED);
+			double baseSpeed = (attr != null ? attr.getValue() : 0.1) * 4.5;
+			if (slideSpeed <= 0) slideSpeed = baseSpeed;
+
 			if (onSlope) {
-				slopeDrop += drop;
-				// 下った高さの2乗に比例させる（0 から始まって SLOPE_FULL_DROP で上限）。
-				// 線形だと出だしが速すぎるので、序盤をわざと寝かせている。
-				double ratio = Math.min(1.0, slopeDrop / SLOPE_FULL_DROP);
-				slopeBoost = MAX_SLOPE_BOOST * ratio * ratio;
+				// 坂の急さは、このティックで「下がった高さ ÷ 進んだ水平距離」＝ tanθ。
+				double grade = slideSpeed > 1e-4 ? drop / slideSpeed : 0;
+				double inv = 1 / Math.sqrt(1 + grade * grade);   // = cosθ
+				double sin = grade * inv;
+				slideSpeed = Math.min(MAX_SLIDE_SPEED,
+						slideSpeed + SLIDE_GRAVITY * (sin - SLIDE_FRICTION * inv));
 				if (slopeTick < MAX_SLOPE_EXTENSION_TICK) slopeTick++;
+			} else {
+				// 平らでは摩擦だけが残る。⚠ 素の滑りの速さより下へは落とさない。
+				slideSpeed = Math.max(baseSpeed, slideSpeed - SLIDE_GRAVITY * SLIDE_FRICTION);
 			}
 
-            AttributeInstance attr = player.getAttribute(Attributes.MOVEMENT_SPEED);
-            double speedScale = 0.45;
-            if (attr != null) {
-                speedScale = attr.getValue() * 4.5;
-            }
-            speedScale *= 1 + slopeBoost;
-            Vec3 vec = slidingVec.scale(speedScale);
+			Vec3 vec = slidingVec.scale(slideSpeed);
 			// ⚠ 段差を落ちている最中も坂の一部なので、そこでは 0.6 倍を掛けない。
 			//    これを掛けていたのが「階段を下ると遅くなる」の正体だった。
 			boolean keepingSpeed = player.onGround() || onSlope;
 			double vy = player.getDeltaMovement().y();
+			// ⚠⚠ 段の角に当たって押し上げられた分は捨てる（2026-09-03）。
+			//    バニラは 0.6 ブロックまで自動で登るので、階段ブロックの段（0.5）へ
+			//    横から当たるたびに上向きの速度が付き、⚠ **走るより跳ねて見えていた**。
+			if (onSlope && vy > 0) vy = 0;
 			// ⚠ 坂へ引き寄せる。速くなるほど段を飛び越えて宙を飛ぶので、これが無いと
 			//    自分の加速で坂から離れ、判定が切れて減速する——という堂々巡りになる。
 			if (onSlope && !player.onGround()) {
