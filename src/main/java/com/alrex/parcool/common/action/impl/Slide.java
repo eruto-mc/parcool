@@ -100,6 +100,9 @@ public class Slide extends Action {
 
 	// いま滑っている速さ（ブロック/tick）。毎ティック加速度を足して育てる。
 	private double slideSpeed = 0;
+	// ⚠ 直前のティックで坂を下っていたか。段差の削りを onTick から付け外しするのに要る
+	//    （onTick は毎ティック呼ばれるが、坂かどうかを自分では計算できない）。
+	private boolean descendingNow = false;
 	private double lastY = Double.NaN;
 	private int slopeTick = 0;
 
@@ -136,6 +139,7 @@ public class Slide extends Action {
 		// マイクラ部（eruto）のパッチ: 滑りの速さを初期化する。
 		// 0 を入れておくと、最初のティックで素の速さから始まる。
 		slideSpeed = 0;
+		descendingNow = false;
 		lastY = player.getY();
 		slopeTick = 0;
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
@@ -165,6 +169,7 @@ public class Slide extends Action {
 			double drop = Double.isNaN(lastY) ? 0 : lastY - y;
 			lastY = y;
 			boolean onSlope = drop > 0.01 && hasGroundBelow(player);
+			descendingNow = onSlope;
 
 			AttributeInstance attr = player.getAttribute(Attributes.MOVEMENT_SPEED);
 			double baseSpeed = (attr != null ? attr.getValue() : 0.1) * 4.5;
@@ -340,7 +345,10 @@ public class Slide extends Action {
 		// ⚠⚠ onStop は ActionProcessor から**一度も呼ばれていない**（2026-09-03 に grep で確認）。
 		//    そちらに戻す処理を置くと、⚠ **一度滑っただけで以後ずっと段差を登れなくなる**。
 		//    onTick は isDoing() でなくても毎ティック呼ばれるので、ここなら必ず戻る。
-		setStepHeightCut(player, isDoing());
+		// ⚠⚠ 削るのは**下っている間だけ**（2026-09-03・あなたの指摘）。
+		//    滑っている間ずっと削ると、⚠ **上りや平地で段に引っかかる**。
+		//    跳ねを止めたいのは下りだけなので、そこに絞れば害が出ない。
+		setStepHeightCut(player, isDoing() && descendingNow);
 	}
 
 	/**
