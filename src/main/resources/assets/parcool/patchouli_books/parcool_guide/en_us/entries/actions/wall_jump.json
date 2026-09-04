@@ -11,6 +11,13 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(list)Press Wall-Jump key($(k:parcool.WallJump)) by walls in air"
+    },
+    {
+      "type": "patchouli:template",
+      "template": "action_toggle",
+      "title": "Turn On / Off",
+      "text": "You can turn this action on or off right here.",
+      "action": "WallJump"
     }
   ]
 }

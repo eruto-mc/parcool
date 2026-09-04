@@ -186,5 +186,12 @@
   "parcool.config.c.parcool_activation": "Whether ParCool is active",
   "parcool.config.c.enable_particles_jt_breakfall": "Enable particle of just time breakfall",
   "parcool.config.c.enable_just_time_effect_breakfall": "Enable effects of just time breakfall",
-  "parcool.config.c.lowest_fall_distance_for_breakfall": "Enable effects of just time breakfall"
+  "parcool.config.c.lowest_fall_distance_for_breakfall": "Enable effects of just time breakfall",
+  "parcool.book.toggle.on": "ON",
+  "parcool.book.toggle.off": "OFF",
+  "parcool.book.toggle.server": "Server",
+  "parcool.book.toggle.origin": "Origin",
+  "parcool.book.toggle.hint": "Click to turn this action on or off",
+  "parcool.book.toggle.server.hint": "The server does not allow this action",
+  "parcool.book.toggle.origin.hint": "Your origin cannot do parkour"
 }

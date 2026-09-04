@@ -176,5 +176,12 @@
   "parcool.config.c.gui_color_theme": "GUIのカラーテーマ",
   "parcool.config.c.parcool_activation": "ParCoolを有効化",
   "parcool.config.c.enable_particles_jt_breakfall": "ジャストタイムブレイクフォールのパーティクルを有効化",
-  "parcool.config.c.enable_just_time_effect_breakfall": "ジャストタイムブレイクフォールのエフェクトを有効化"
+  "parcool.config.c.enable_just_time_effect_breakfall": "ジャストタイムブレイクフォールのエフェクトを有効化",
+  "parcool.book.toggle.on": "使う",
+  "parcool.book.toggle.off": "使わない",
+  "parcool.book.toggle.server": "サーバが停止",
+  "parcool.book.toggle.origin": "種族が使えない",
+  "parcool.book.toggle.hint": "押すと、この技を使うかどうかを切り替えられる。",
+  "parcool.book.toggle.server.hint": "サーバがこの技を止めているので切り替えられない。",
+  "parcool.book.toggle.origin.hint": "いまの種族はパルクールを使えないので切り替えられない。"
 }

@@ -1,0 +1,11 @@
+{
+  "components": [
+    {
+      "type": "custom",
+      "class": "com.alrex.parcool.client.book.ActionToggleComponent",
+      "action": "#action",
+      "x": 12,
+      "y": 30
+    }
+  ]
+}
