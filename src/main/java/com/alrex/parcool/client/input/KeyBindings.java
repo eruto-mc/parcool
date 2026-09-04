@@ -63,7 +63,22 @@ public class KeyBindings {
 		return forwardVector;
 	}
 
+	// ⚠⚠ マイクラ部（eruto）のパッチ（2026-09-04）: ここもキーの押下を先に見る。
+	//    理由は下の向き読み4つと同じ（Better Third Person が player.input を毎ティック
+	//    書き換える）。⚠ 2026-09-02 に4つだけ直して**ここを取りこぼしていた**。
+	//
+	// ⚠ 実害: この口を読んでいるのは **受け身の Auto だけ**
+	//    （BreakfallReady の canStart と、着地時に「入力が在るか」を見る所）。
+	//    ⚠⚠ **Auto は当部が足した操作種別**なのに、三人称でカメラを切り離していると
+	//    「移動キーを押していない」と読めてしまい、⚠ **受け身が出ない**。
+	//
+	// ⚠ キーが押されていないときは従来どおり input を見る（ゲームパッド用）。
 	public static Boolean isAnyMovingKeyDown() {
+		if (mc.options != null
+				&& (isKeyDown(mc.options.keyUp)
+				|| isKeyDown(mc.options.keyDown)
+				|| isKeyDown(mc.options.keyLeft)
+				|| isKeyDown(mc.options.keyRight))) return true;
 		return mc.player != null
 				&& mc.player.input != null
 				&& (mc.player.input.left
