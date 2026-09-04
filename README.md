@@ -1,7 +1,7 @@
 > ## ⚠ これは改変版です（alRex-U/ParCool の fork・公式のものではありません）
 >
 > **This is a modified version of ParCool, not the official build.**
-> Modified by the minecraft club (eruto) — **最初の改変 2026-08-02 ／ 最新の改変 2026-08-30**。
+> Modified by the minecraft club (eruto) — **最初の改変 2026-08-02 ／ 最新の改変 2026-09-04**。
 > Original work: [alRex-U/ParCool](https://github.com/alRex-U/ParCool).
 > Licensed under **LGPL-3.0**, same as upstream. The original author does not endorse this build.
 >
