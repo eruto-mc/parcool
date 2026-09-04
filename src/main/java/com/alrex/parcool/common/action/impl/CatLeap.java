@@ -2,6 +2,7 @@ package com.alrex.parcool.common.action.impl;
 
 import com.alrex.parcool.api.SoundEvents;
 import com.alrex.parcool.client.animation.impl.CatLeapAnimator;
+import com.alrex.parcool.client.input.KeyBindings;
 import com.alrex.parcool.client.input.KeyRecorder;
 import com.alrex.parcool.common.action.Action;
 import com.alrex.parcool.common.action.StaminaConsumeTiming;
@@ -97,17 +98,33 @@ public class CatLeap extends Action {
 		// ⚠ 上流は normalize() した向きだけを渡していたので、速さは復元できなかった。
 		double entrySpeed = movement.length();
 		movement = movement.scale(1 / entrySpeed);
+
+		// ⚠⚠ マイクラ部（eruto）のパッチ: 滑走中は Slide から直に速さを採る（2026-09-04）。
+		//    deltaMovement は摩擦で削られた値（Slide.getSlideSpeed() の注記を見る）。
+		Slide slide = parkourability.get(Slide.class);
+		boolean fromSlide = slide.isDoing();
+		if (fromSlide) entrySpeed = slide.getSlideSpeed();
 		startInfo.putDouble(movement.x()).putDouble(movement.z()).putDouble(entrySpeed);
+
+		// ⚠⚠ マイクラ部（eruto）のパッチ: 滑走中はジャンプでも出せる（2026-09-04・あなたの案）。
+		//
+		//    上流の引き金は「SHIFT を短く押して離す」だけ。⚠ ところが SHIFT はしゃがみなので、
+		//    走りながら押すと**その数ティックで速度が落ちる**——⚠⚠ **勢いを乗せたいのに、
+		//    乗せる操作そのものが勢いを削っていた。**
+		//    ⚠ 滑走からはジャンプで出せるようにして、この食い違いを外す。
+		//    ⚠ 上流の SHIFT の道はそのまま残す（平地から出す普段の使い方を変えない）。
+		boolean bySneak = readyTick > 0 && KeyRecorder.keySneak.isReleased();
+		boolean byJump = fromSlide && KeyBindings.isKeyJumpDown();
+
 		return (player.onGround()
 				&& !player.isInWater()
 				&& !stamina.isExhausted()
 				&& coolTimeTick <= 0
-				&& readyTick > 0
+				&& (bySneak || byJump)
 				&& parkourability.get(ChargeJump.class).getChargingTick() < ChargeJump.JUMP_MAX_CHARGE_TICK / 2
                 && !parkourability.get(HideInBlock.class).isDoing()
 				&& !parkourability.get(Roll.class).isDoing()
 				&& !parkourability.get(Tap.class).isDoing()
-				&& KeyRecorder.keySneak.isReleased()
 		);
 	}
 

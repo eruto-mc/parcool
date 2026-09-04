@@ -116,6 +116,19 @@ public class Slide extends Action {
 
 	// いま滑っている速さ（ブロック/tick）。毎ティック加速度を足して育てる。
 	private double slideSpeed = 0;
+
+	/**
+	 * マイクラ部（eruto）のパッチ: いま滑っている速さを外から読めるようにする。
+	 *
+	 * <p>⚠⚠ CatLeap は `getDeltaMovement()` からでは正しく読めない。
+	 * `ActionList` の並びが CatLeap 17 番・Slide 36 番で <b>CatLeap のほうが先に処理される</b>ため、
+	 * そのとき deltaMovement に入っているのは「バニラの移動と摩擦を通ったあと・
+	 * Slide が今ティックぶんを書く前」の値で、⚠ <b>摩擦で削られている</b>。
+	 * ここから直に採れば、坂で育てた速さがそのまま渡る。
+	 */
+	public double getSlideSpeed() {
+		return slideSpeed;
+	}
 	private double lastY = Double.NaN;
 	private int slopeTick = 0;
 
@@ -160,7 +173,18 @@ public class Slide extends Action {
 		if (animation != null) {
 			animation.setAnimator(new SlidingAnimator());
 		}
-        parkourability.getBehaviorEnforcer().addMarkerCancellingJump(ID_JUMP_CANCEL, this::isDoing);
+        // ⚠⚠ マイクラ部（eruto）のパッチ: キャットリープが出ている間は封じを外す（2026-09-04）。
+        //
+        //    上流の封じは `jumpFromGround` の HEAD を潰す（PlayerMixin）ので、
+        //    ⚠ **CatLeap 自身が呼ぶ `player.jumpFromGround()` まで止まっていた。**
+        //    ＝ 滑走から出るキャットリープが**上向きの速度をもらえず、水平に飛ぶだけ**だった。
+        //
+        //    ⚠ `Action.start()` は `doing = true` を `onStartInLocalClient` の**前**に立てるので、
+        //    CatLeap が跳ぶ瞬間には既に isDoing() が真。だからこの条件で外せる。
+        parkourability.getBehaviorEnforcer().addMarkerCancellingJump(
+                ID_JUMP_CANCEL,
+                () -> this.isDoing() && !parkourability.get(CatLeap.class).isDoing()
+        );
 	}
 
 	@Override
