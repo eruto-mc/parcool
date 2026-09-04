@@ -17,7 +17,7 @@
     {
       "type": "patchouli:text",
       "title": "How to Use",
-      "text": "$(list)Press movement keys twice(impossible with forward key)$(list)Press movement key and Dodge key($(k:parcool.Dodge))"
+      "text": "$(list)Press the back, left or right movement key twice(impossible with forward key)$(list)No key is bound to Dodge($(k:parcool.Dodge)) by default. Bind one yourself and you can dodge forward too"
     },
     {
       "type": "action_toggle",

@@ -10,7 +10,7 @@
     {
       "type": "patchouli:text",
       "title": "How to Use",
-      "text": "$(list) Continue to press Fast Run key($(k:parcool.FastRun)) during sprinting"
+      "text": "$(list) Just sprint while swimming. The Fast Run key($(k:parcool.FastRun)) is not needed."
     },
     {
       "type": "action_toggle",

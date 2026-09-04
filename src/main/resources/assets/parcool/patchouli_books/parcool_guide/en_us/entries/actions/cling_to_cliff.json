@@ -24,7 +24,7 @@
     {
       "type": "patchouli:text",
       "title": "How to Use",
-      "text": "$(list) Press Cling-To-Cliff Key($(k:parcool.ClingToCliff)) by a wall$(br)"
+      "text": "$(list) Face a wall and press Cling-To-Cliff Key($(k:parcool.ClingToCliff))$(br)"
     },
     {
       "type": "action_toggle",

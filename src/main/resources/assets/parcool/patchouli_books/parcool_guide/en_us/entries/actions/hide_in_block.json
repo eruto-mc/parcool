@@ -17,7 +17,7 @@
     {
       "type": "patchouli:text",
       "title": "How to Use",
-      "text": "$(list) Press Hide-In-Block Key($(k:parcool.HideInBlock)) while sneaking near blocks you want to hide in"
+      "text": "$(list) Look at the block you want to hide in, sneak, then press Hide-In-Block Key($(k:parcool.HideInBlock))"
     },
     {
       "type": "action_toggle",
