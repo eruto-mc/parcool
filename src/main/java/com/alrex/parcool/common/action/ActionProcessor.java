@@ -186,6 +186,29 @@ public class ActionProcessor {
 		// loop in onTick, so gating here covers all of them at once.
 		// Reads as 1.0 for anyone Origins does not touch, i.e. unchanged.
 		boolean erutoParkourAllowed = player.getAttributeValue(Attributes.PARKOUR.get()) > 0.5;
+
+		// ── マイクラ部（eruto）のパッチ: 乗り物に乗っている間はパルクールをしない ──────
+		//
+		// ⚠⚠ **馬に乗ったまま壁キックができた**（2026-09-05・あなたが実物で確認）。
+		//
+		// ⚠ 上流は乗り物の判定を **26 技のうち 5 つにしか書いていない**
+		//    （Crawl・Dive・FastRun・FastSwim・HideInBlock）。⚠ **壁キックには無い。**
+		//    ⚠ しかも `checkCanStart` は `!player.onGround()` を求めるが、
+		//    ⚠⚠ **乗っている間プレイヤー自身は接地していない扱い**なので、そこも通る。
+		//    ⚠ 壁の判定もプレイヤーの当たり判定で行うので、馬ごと壁に寄れば当たる。
+		//    ⚠ 既定キーも重なっている——壁キックは**スペース**＝馬のジャンプと同じ。
+		//
+		// ⚠ 技ごとに足すと 21 か所になり、次に上流が技を足したときまた漏れる。
+		//    ⚠⚠ **ここは「すべての技が通る1つの場所」**（上の注記のとおり）なので、
+		//    1 行で全部を塞ぐ。⚠ 継続の側にも掛かるので、**乗った瞬間に動作が止まる**。
+		//
+		// ⚠ ジップラインは壊れない——`startRiding` は ParCool の src 全体で **0 件**で、
+		//    ⚠ **あれはプレイヤーを乗り物にせず、自前で位置を動かす作り**（2026-09-05 に確認）。
+		// ⚠ 馬だけの話ではない（ボート・トロッコ・その他の乗り物も同じ）。
+		if (player.isPassenger()) {
+			erutoParkourAllowed = false;
+		}
+
 		if (action.isDoing()) {
 			boolean canContinue = erutoParkourAllowed
 					&& parkourability.getActionInfo().can(action.getClass())
