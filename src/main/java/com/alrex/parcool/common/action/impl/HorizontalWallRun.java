@@ -47,6 +47,21 @@ public class HorizontalWallRun extends Action {
 	private Vec3 runningWallDirection = null;
 	private Vec3 runningDirection = null;
 
+	// ── マイクラ部（eruto）のパッチ: 壁を走る速さに、入ってきた勢いを引き継ぐ（2026-09-04）──
+	//
+	// ⚠⚠ 上流は毎ティック `speedScale = 0.2` を書き込んでいた（移動速度の属性比だけ掛ける）。
+	//   0.2 ブロック/tick ＝ **4.0 m/s** で、⚠ **バニラの歩き 4.317 m/s より遅い。**
+	//   ダッシュ補正が乗っても 0.24 ＝ 4.8 m/s で、⚠ **ダッシュ 5.612 m/s に届かない。**
+	//   ＝ **走って壁に飛び移ると、そこで歩きより遅くなる。**
+	//
+	// ⚠ しかも入ってきた速さは毎ティック上書きで消える。CatLeap と同じ「固定値で書き直す」型。
+	//   ⚠⚠ **上流自身 WallJump では `motion + jumpMotion` と足している**ので、そちらへ揃える。
+	//
+	// いまは「上流の 0.2×属性比」と「飛び移った瞬間の水平速度」の**大きいほう**を使う。
+	// ⚠ 減衰は入れていない——壁走りは `wall-run_continuable_tick`（既定 25＝1.25秒）で
+	//   どのみち終わるので、その間は勢いのままにする。⚠ 速すぎたらここに減衰を足す。
+	private double entrySpeed = 0;
+
 	@Override
 	public void onClientTick(Player player, Parkourability parkourability, IStamina stamina) {
 		if (coolTime > 0) coolTime--;
@@ -81,6 +96,8 @@ public class HorizontalWallRun extends Action {
 			if (attr != null) {
 				speedScale *= attr.getValue() / attr.getBaseValue();
 			}
+			// マイクラ部（eruto）のパッチ: 飛び移った瞬間の速さを下回らせない（上の注記）。
+			speedScale = Math.max(speedScale, entrySpeed);
 			player.setDeltaMovement(
 					runningDirection.x() * speedScale,
 					movement.y() * (slipperiness - 0.1) * ((double) getDoingTick()) / getMaxRunningTick(parkourability.getActionInfo()),
@@ -103,7 +120,13 @@ public class HorizontalWallRun extends Action {
 						wallVec.x() * lookDirection.x() + wallVec.z() * lookDirection.z(), 0,
 						-wallVec.x() * lookDirection.z() + wallVec.z() * lookDirection.x()
 				).normalize();
-		if (Math.abs(dividedVec.z()) < 0.9) {
+		// 体の向きと壁の平行からのずれの許容。sin(θ) で比べている。
+		// 0.9 ＝ **26度**しか許さず、走りながら少し壁へ寄っただけで出なくなっていた。
+		// ⚠ 当部は Vault で同じ形の条件を 45°→60° に広げている（README）。
+		//    こちらは 26°→ **37度**（0.8）まで緩める。
+		// ⚠ 操作種別が Auto なので、緩めすぎると壁をかすめただけで暴発する。
+		//    ⚠ まず 0.8 で走ってみて、まだ渋いなら 0.75（41度）まで。
+		if (Math.abs(dividedVec.z()) < 0.8) {
 			return false;
 		}
 		BufferUtil.wrap(startInfo).putBoolean(dividedVec.z() > 0/*if true, wall is in right side*/);
@@ -176,6 +199,10 @@ public class HorizontalWallRun extends Action {
 		wallIsRightward = BufferUtil.getBoolean(startData);
 		runningWallDirection = new Vec3(startData.getDouble(), 0, startData.getDouble());
 		runningDirection = new Vec3(startData.getDouble(), 0, startData.getDouble());
+		// マイクラ部（eruto）のパッチ: 飛び移った瞬間の水平速度を控えておく。
+		// ⚠ ここで採る（canStart ではない）——canStart は開始条件を判定するだけで、
+		//    ⚠⚠ **通らなかった回にも呼ばれる**ので、そこで控えると古い値が残る。
+		entrySpeed = player.getDeltaMovement().multiply(1, 0, 1).length();
 		if (ParCoolConfig.Client.Booleans.EnableActionSounds.get())
             player.playSound(SoundEvents.HORIZONTAL_WALL_RUN.get(), 1f, 1f);
 		Animation animation = Animation.get(player);
