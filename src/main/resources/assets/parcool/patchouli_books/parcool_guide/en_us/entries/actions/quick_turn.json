@@ -11,6 +11,11 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(list)Press Quick Turn key($(k:parcool.QuickTurn))"
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)You can turn this action on or off right here.",
+      "action": "QuickTurn"
     }
   ]
 }

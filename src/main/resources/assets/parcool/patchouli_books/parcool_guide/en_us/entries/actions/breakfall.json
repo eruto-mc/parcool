@@ -32,6 +32,11 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(list)Land while you press Breakfall($(k:parcool.Breakfall)) Key"
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)This turns breakfall itself on or off - both Roll and Safety Tap.",
+      "action": "BreakfallReady"
     }
   ]
 }

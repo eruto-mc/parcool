@@ -18,6 +18,11 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(list)do Crawl while doing $(l:parcool:actions/fast_run)Fast Run$()"
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)You can turn this action on or off right here.",
+      "action": "Slide"
     }
   ]
 }

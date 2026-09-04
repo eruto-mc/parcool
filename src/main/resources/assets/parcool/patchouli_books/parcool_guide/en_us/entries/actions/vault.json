@@ -19,6 +19,11 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(bold)1.$() Do $(l:parcool:actions/fast_run)Fast Run$()$(br)$(bold)2.$() Collide with blocks"
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)You can turn this action on or off right here.",
+      "action": "Vault"
     }
   ]
 }

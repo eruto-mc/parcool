@@ -6,6 +6,11 @@
     {
       "type": "patchouli:text",
       "text": "You can climb pole-like blocks, such as stacked fences, chains, iron bars and etc."
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)You can turn this action on or off right here.",
+      "action": "ClimbPoles"
     }
   ]
 }

@@ -11,6 +11,11 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(bold)1.$() Do $(l:parcool:actions/fast_run)Fast Run$()$(br)$(bold)2.$() Sneak quickly$(br)$(bold)3.$() Cancel sneaking quickly$(br2)I recommend also using $(l:parcool:actions/cling_to_cliff)Cling To Cliff$()."
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)You can turn this action on or off right here.",
+      "action": "CatLeap"
     }
   ]
 }

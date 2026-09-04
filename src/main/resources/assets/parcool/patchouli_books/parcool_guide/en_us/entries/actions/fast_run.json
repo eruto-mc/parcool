@@ -18,6 +18,11 @@
       "type": "patchouli:text",
       "title": "How to Use",
       "text": "$(list) Continue to press Fast Run key($(k:parcool.FastRun)) during sprinting"
+    },
+    {
+      "type": "action_toggle",
+      "text": "$(bold)Turn On / Off$()$(br2)You can turn this action on or off right here.",
+      "action": "FastRun"
     }
   ]
 }
