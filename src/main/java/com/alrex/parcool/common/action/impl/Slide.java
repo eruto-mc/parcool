@@ -59,16 +59,34 @@ public class Slide extends Action {
 	// ⚠ どちらも当部が考えた式で、⚠ **坂の急さを見ていなかった**。
 	// 緩い坂も急な坂も、同じ高さを下れば同じだけ速くなる形だった。
 	//
-	// いまは物理そのまま——斜面に沿った重力の成分から摩擦を引く:
+	// いまは物理そのまま——斜面に沿った重力の成分から、摩擦と速さに応じた抵抗を引く:
 	//
-	//     加速度 = SLIDE_GRAVITY × (sinθ − SLIDE_FRICTION × cosθ)
+	//     加速度 = SLIDE_GRAVITY × (sinθ − SLIDE_FRICTION × cosθ) − SLIDE_DRAG × v²
 	//
-	// 急な坂ほど強く加速し、平らに近づくと摩擦だけが残って落ち着く。
 	// バニラの階段は1マス進んで1マス下がる＝45度なので、sinθ・cosθ とも 0.707。
 	private static final double SLIDE_GRAVITY = 0.08;
 	private static final double SLIDE_FRICTION = 0.1;
-	// 速さの上限（ブロック/tick）。0.9 ＝ 18 m/s ＝ 素の滑り 0.45 の2倍。
-	private static final double MAX_SLIDE_SPEED = 0.9;
+	// ⚠⚠ 速さに応じた抵抗（2026-09-04 に足した）。⚠ **落ち着く速さを決めているのはこれ。**
+	//
+	//    摩擦だけの形には穴があった——⚠ **傾きが SLIDE_FRICTION（＝tanθ 0.1・約5.7度）を
+	//    超える坂は、加速度が正のままなので必ず上限まで行く**。バニラの階段（45度）では
+	//    加速度 0.051 なので **10 tick 弱で上限に張り付く**。
+	//    ⚠⚠ **つまり坂の急さが速さに出ておらず、どの坂でも同じ速さだった**
+	//    （2026-09-04・あなたの「最大速度が速すぎる」の正体）。
+	//
+	//    v² に比例する抵抗を引くと、加速度が 0 になる速さ＝落ち着く速さが坂ごとに決まる:
+	//
+	//        v終 = √( SLIDE_GRAVITY × (sinθ − SLIDE_FRICTION × cosθ) ÷ SLIDE_DRAG )
+	//
+	//    | 坂 | 落ち着く速さ |
+	//    | - | - |
+	//    | 26.6度（2マス進んで1マス下がる） | 0.49 ＝ 9.8 m/s |
+	//    | 45度（バニラの階段） | 0.65 ＝ 13.0 m/s |
+	//    | 63.4度（1マス進んで2マス下がる） | 0.75 ＝ 15.1 m/s |
+	private static final double SLIDE_DRAG = 0.12;
+	// 速さの上限（ブロック/tick）。⚠ **いまは安全弁**——上の表のいちばん急な坂より上に置いて
+	// あるので、普通の地形では当たらない。0.8 ＝ 16 m/s ＝ 素の滑り 0.45 の 1.8 倍。
+	private static final double MAX_SLIDE_SPEED = 0.8;
 
 	// ⚠⚠ 滑っている間だけ、段差を登る高さを削る（2026-09-03）。
 	//    バニラは 0.6 ブロックまで自動で登る。階段ブロックの段は 0.5 なので、
@@ -173,8 +191,13 @@ public class Slide extends Action {
 				double grade = slideSpeed > 1e-4 ? drop / slideSpeed : 0;
 				double inv = 1 / Math.sqrt(1 + grade * grade);   // = cosθ
 				double sin = grade * inv;
-				slideSpeed = Math.min(MAX_SLIDE_SPEED,
-						slideSpeed + SLIDE_GRAVITY * (sin - SLIDE_FRICTION * inv));
+				double accel = SLIDE_GRAVITY * (sin - SLIDE_FRICTION * inv)
+						- SLIDE_DRAG * slideSpeed * slideSpeed;
+				// ⚠ 素の滑りより遅くはしない。⚠⚠ **抵抗を足したぶん、ほとんど傾いていない坂
+				//    （下がった高さが 0.01 をわずかに超えるだけ）では減速が勝つ**ので、
+				//    これが無いと「坂に入った瞬間だけ遅くなる」が起きる。
+				slideSpeed = Math.max(baseSpeed,
+						Math.min(MAX_SLIDE_SPEED, slideSpeed + accel));
 				if (slopeTick < MAX_SLOPE_EXTENSION_TICK) slopeTick++;
 			} else {
 				// 平らでは摩擦だけが残る。⚠ 素の滑りの速さより下へは落とさない。
