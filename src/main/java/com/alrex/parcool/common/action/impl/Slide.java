@@ -155,8 +155,22 @@ public class Slide extends Action {
 		);
 		// マイクラ部（eruto）のパッチ: 坂を滑っていたティックは持ち時間から差し引く。
 		// 平らになった瞬間から差し引きが止まるので、そこから通常の持ち時間で終わる。
+		// ⚠⚠ マイクラ部（eruto）のパッチ: キャットリープが出たら滑りを終える（2026-09-04）。
+		//
+		//    ⚠ `ActionProcessor.processAction` は **ActionList の並び順に1つずつ**
+		//    「開始 → 動作中なら working tick」を回す。CatLeap は 17 番、Slide は 36 番。
+		//    ⚠⚠ **CatLeap が跳躍の速度を書いた直後に、同じティックの中で Slide の
+		//    working tick が走り、`setDeltaMovement` で上書きしていた。**
+		//
+		//    ⚠ しかも跳んだ直後は接地しておらず坂でもないので `vec.scale(0.6)` が掛かる。
+		//    ＝ **跳んだ瞬間に滑走速度の 0.6 倍まで落ちていた**（2026-09-04・
+		//    あなたの「キャットリープ別に速くないわ」の正体）。
+		//
+		//    ⚠ 段差の削りは `onTick` が `isDoing()` を見て毎ティック付け外しするので、
+		//    ここで終えても戻し忘れは起きない。
 		return getDoingTick() - slopeTick < maxSlidingTick
-				&& parkourability.get(Crawl.class).isDoing();
+				&& parkourability.get(Crawl.class).isDoing()
+				&& !parkourability.get(CatLeap.class).isDoing();
 	}
 
 	@Override
