@@ -1,13 +1,13 @@
 {
   "components": [
     {
-      "type": "text",
+      "type": "patchouli:text",
       "text": "#text",
       "x": 0,
       "y": 0
     },
     {
-      "type": "custom",
+      "type": "patchouli:custom",
       "class": "com.alrex.parcool.client.book.ActionToggleComponent",
       "action": "#action",
       "x": 12,
