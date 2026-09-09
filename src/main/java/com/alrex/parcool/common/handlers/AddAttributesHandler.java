@@ -25,5 +25,6 @@ public class AddAttributesHandler {
         event.add(EntityType.PLAYER, Attributes.PARKOUR.get());
         event.add(EntityType.PLAYER, Attributes.DODGE_DISTANCE.get());
         event.add(EntityType.PLAYER, Attributes.DODGE_RECOVERY.get());
+        event.add(EntityType.PLAYER, Attributes.BREAKFALL_JUST.get());
     }
 }

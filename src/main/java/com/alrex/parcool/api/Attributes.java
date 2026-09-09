@@ -92,6 +92,25 @@ public class Attributes {
      */
     public static final RegistryObject<Attribute> DODGE_RECOVERY = ATTRIBUTES.register("dodge_recovery", () -> new RangedAttribute("parcool.dodge_recovery", 1.0, 0.1, 10.0).setSyncable(true));
 
+    /**
+     * Minecraft-bu (eruto) patch: whether this player's breakfall always counts as
+     * just-timed.
+     *
+     * <p>Upstream decides "just" by how recently the breakfall was readied
+     * ({@code BreakfallReady.getDoingTick() < JustTimeBreakfallTick}), which is a
+     * timing check the player either hits or misses. A just-timed breakfall removes
+     * fall damage up to 1.34x the normal height and multiplies the rest by 0.66.
+     *
+     * <p>At 1.0 the timing check is skipped and the breakfall is always just-timed.
+     * <b>Whether a breakfall happens at all is untouched</b> - the readiness check
+     * ({@code BreakfallReady.isReadyInput}) still decides that, so a player who does
+     * not press (or, in Auto control, does not hold a movement key) still takes the
+     * fall normally.
+     *
+     * <p>0.0 (default) keeps upstream behaviour.
+     */
+    public static final RegistryObject<Attribute> BREAKFALL_JUST = ATTRIBUTES.register("breakfall_just", () -> new RangedAttribute("parcool.breakfall_just", 0.0, 0.0, 1.0).setSyncable(true));
+
     public static void registerAll(IEventBus bus) {
         ATTRIBUTES.register(bus);
     }

@@ -47,7 +47,14 @@ public class PlayerDamageHandler {
 					&& (parkourability.getActionInfo().can(Tap.class)
 					|| parkourability.getActionInfo().can(Roll.class))
 			) {
-				boolean justTime = parkourability.get(BreakfallReady.class).getDoingTick() < parkourability.getLimitedValue(
+				// Minecraft-bu (eruto) patch: parcool.breakfall_just makes every breakfall
+				// count as just-timed. Only the timing check is skipped; whether a
+				// breakfall happens at all is still BreakfallReady.isReadyInput's call,
+				// so a player who does not ready one still takes the fall normally.
+				boolean erutoAlwaysJust = player.getAttributeValue(
+						com.alrex.parcool.api.Attributes.BREAKFALL_JUST.get()) >= 0.5;
+				boolean justTime = erutoAlwaysJust
+						|| parkourability.get(BreakfallReady.class).getDoingTick() < parkourability.getLimitedValue(
 						ParCoolConfig.Client.Integers.JustTimeBreakfallTick,
 						ParCoolConfig.Server.Integers.MaxJustTimeBreakfallTick
 				);
